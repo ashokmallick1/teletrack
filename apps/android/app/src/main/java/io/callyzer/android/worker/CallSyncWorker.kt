@@ -31,6 +31,14 @@ class CallSyncWorker(
             return Result.failure()
         }
 
+        // Poll native call log first to capture any new SIM calls made in background
+        try {
+            val repository = io.callyzer.android.repository.CallRepository(applicationContext)
+            repository.pollCallLogAndQueue()
+        } catch (_: Exception) {
+            // Proceed even if polling fails (e.g. permission temporarily unavailable)
+        }
+
         val pending = dao.getPendingEvents(limit = 50)
         if (pending.isEmpty()) {
             tokenStorage.lastSyncTimestamp = System.currentTimeMillis()

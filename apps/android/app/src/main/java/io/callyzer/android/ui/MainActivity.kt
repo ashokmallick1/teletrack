@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
+import io.callyzer.android.repository.CallRepository
 import io.callyzer.android.security.TokenStorage
 import io.callyzer.android.ui.screens.diagnostics.SyncDiagnosticsScreen
 import io.callyzer.android.ui.screens.enrollment.EnrollmentScreen
@@ -14,10 +15,18 @@ import io.callyzer.android.ui.theme.CallyzerTheme
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var tokenStorage: TokenStorage
+    private lateinit var repository: CallRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val tokenStorage = TokenStorage(this)
+        tokenStorage = TokenStorage(this)
+        repository = CallRepository(this)
+
+        if (tokenStorage.isEnrolled) {
+            repository.schedulePeriodicSync(15)
+        }
 
         setContent {
             CallyzerTheme {
@@ -29,6 +38,8 @@ class MainActivity : ComponentActivity() {
                     "enrollment" -> {
                         EnrollmentScreen(
                             onEnrollmentSuccess = {
+                                repository.schedulePeriodicSync(15)
+                                repository.triggerBackgroundSync()
                                 currentScreen = "home"
                             }
                         )
@@ -58,6 +69,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::tokenStorage.isInitialized && tokenStorage.isEnrolled && ::repository.isInitialized) {
+            repository.triggerBackgroundSync()
         }
     }
 }
