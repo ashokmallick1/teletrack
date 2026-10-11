@@ -12,6 +12,19 @@ data class DeviceEnrollmentRequest(
     val simMetadata: Map<String, Any>? = null
 )
 
+data class DeviceEnrollLoginRequest(
+    val email: String,
+    val password: String,
+    val deviceIdentifier: String,
+    val deviceName: String,
+    val model: String,
+    val manufacturer: String,
+    val osVersion: String,
+    val appVersion: String,
+    val permissionGranted: Boolean,
+    val simMetadata: Map<String, Any>? = null
+)
+
 data class DeviceEnrollmentResponse(
     val deviceApiKey: String,
     val deviceId: String,
@@ -20,6 +33,34 @@ data class DeviceEnrollmentResponse(
     val employeeId: String,
     val employeeName: String,
     val syncIntervalMinutes: Int
+)
+
+data class ServerHealthResponse(
+    val status: String,
+    val service: String,
+    val version: String,
+    val timestamp: String
+)
+
+data class DeviceStatusResponse(
+    val deviceId: String,
+    val deviceName: String,
+    val organizationId: String,
+    val organizationName: String,
+    val employeeId: String,
+    val employeeName: String,
+    val status: String,
+    val lastSyncAt: String?,
+    val permissionGranted: Boolean
+)
+
+data class AssignedLeadDto(
+    val id: String,
+    val name: String,
+    val phoneNumber: String,
+    val company: String? = null,
+    val status: String,
+    val followUpAt: String? = null
 )
 
 data class IngestCallEventDto(

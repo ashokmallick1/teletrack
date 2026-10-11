@@ -7,12 +7,20 @@ import io.callyzer.android.data.local.QueuedCallEventEntity
 import io.callyzer.android.data.model.CallRecord
 import io.callyzer.android.data.model.DataSource
 import io.callyzer.android.data.model.SyncStatus
+import io.callyzer.android.data.remote.ApiClient
+import io.callyzer.android.data.remote.AssignedLeadDto
+import io.callyzer.android.data.remote.IngestBatchRequest
+import io.callyzer.android.data.remote.IngestCallEventDto
+import io.callyzer.android.data.remote.ServerHealthResponse
 import io.callyzer.android.data.source.AuthorizedCallLogDataSource
 import io.callyzer.android.data.source.CallDataSource
+import io.callyzer.android.security.TokenStorage
 import io.callyzer.android.worker.CallSyncWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 class CallRepository(
@@ -22,6 +30,7 @@ class CallRepository(
 ) {
 
     private val dao = database.queuedCallEventDao()
+    private val tokenStorage = TokenStorage(context)
 
     fun observePendingCount(): Flow<Int> = dao.observePendingCount()
 
@@ -91,6 +100,105 @@ class CallRepository(
             triggerBackgroundSync()
         }
         return@withContext id
+    }
+
+    suspend fun pingServer(targetUrl: String? = null): Result<ServerHealthResponse> = withContext(Dispatchers.IO) {
+        try {
+            val api = ApiClient.getService(targetUrl ?: tokenStorage.baseUrl)
+            val response = api.checkHealth()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchAssignedLeads(): List<AssignedLeadDto> = withContext(Dispatchers.IO) {
+        val apiKey = tokenStorage.deviceApiKey ?: return@withContext emptyList()
+        try {
+            val api = ApiClient.getService(tokenStorage.baseUrl)
+            val response = api.getAssignedLeads(apiKey)
+            if (response.isSuccessful && response.body() != null) {
+                response.body()!!
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun syncNowDirect(): String = withContext(Dispatchers.IO) {
+        val apiKey = tokenStorage.deviceApiKey
+        if (apiKey.isNullOrBlank()) {
+            return@withContext "Error: Device not enrolled"
+        }
+
+        // 1. Poll native call log first
+        pollCallLogAndQueue()
+
+        // 2. Fetch pending events
+        val pending = dao.getPendingEvents(limit = 100)
+        if (pending.isEmpty()) {
+            tokenStorage.lastSyncTimestamp = System.currentTimeMillis()
+            tokenStorage.lastSyncStatus = "Up to date (Queue empty)"
+            return@withContext "All SIM calls are synced"
+        }
+
+        val ids = pending.map { it.id }
+        dao.updateSyncStatus(ids, SyncStatus.SYNCING)
+
+        val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+
+        val dtos = pending.map { evt ->
+            IngestCallEventDto(
+                sourceCallId = evt.sourceCallId,
+                direction = evt.direction.name,
+                durationSeconds = evt.durationSeconds,
+                startedAt = isoFormat.format(Date(evt.startedAt)),
+                endedAt = evt.endedAt?.let { isoFormat.format(Date(it)) },
+                outcome = evt.outcome.name,
+                outcomeConfidence = evt.outcomeConfidence,
+                phoneNumber = evt.phoneNumber,
+                simSlot = evt.simSlot,
+                simCarrier = evt.simCarrier,
+                phoneAccount = evt.phoneAccount,
+                dataSource = evt.dataSource.name
+            )
+        }
+
+        val request = IngestBatchRequest(
+            clientTimestamp = isoFormat.format(Date()),
+            events = dtos
+        )
+
+        try {
+            val apiService = ApiClient.getService(tokenStorage.baseUrl)
+            val response = apiService.uploadCallBatch(apiKey, request)
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                dao.updateSyncStatus(ids, SyncStatus.SYNCED)
+                tokenStorage.lastSyncTimestamp = System.currentTimeMillis()
+                val statusText = "Uploaded ${body.inserted} new call(s) (${body.duplicates} dups)"
+                tokenStorage.lastSyncStatus = statusText
+                statusText
+            } else {
+                val err = "Upload failed: HTTP ${response.code()} ${response.message()}"
+                dao.markFailedWithRetry(ids, err)
+                tokenStorage.lastSyncStatus = err
+                err
+            }
+        } catch (e: Exception) {
+            val err = "Upload error: ${e.localizedMessage ?: "Connection error"}"
+            dao.markFailedWithRetry(ids, err)
+            tokenStorage.lastSyncStatus = err
+            err
+        }
     }
 
     fun triggerBackgroundSync() {

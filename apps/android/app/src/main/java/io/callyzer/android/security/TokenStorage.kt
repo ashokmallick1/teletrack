@@ -8,8 +8,8 @@ class TokenStorage(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("callyzer_secure_prefs", Context.MODE_PRIVATE)
 
     var baseUrl: String
-        get() = prefs.getString(KEY_BASE_URL, "http://10.0.2.2:4000") ?: "http://10.0.2.2:4000"
-        set(value) = prefs.edit().putString(KEY_BASE_URL, value).apply()
+        get() = prefs.getString(KEY_BASE_URL, "https://callyzer.bhashaai.in") ?: "https://callyzer.bhashaai.in"
+        set(value) = prefs.edit().putString(KEY_BASE_URL, value.trim()).apply()
 
     var deviceApiKey: String?
         get() = prefs.getString(KEY_DEVICE_API_KEY, null)
@@ -48,7 +48,9 @@ class TokenStorage(context: Context) {
         set(value) = prefs.edit().putString(KEY_LAST_SYNC_STATUS, value).apply()
 
     fun clearAll() {
+        val currentUrl = baseUrl
         prefs.edit().clear().apply()
+        baseUrl = currentUrl
     }
 
     companion object {

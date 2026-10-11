@@ -2,11 +2,24 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { parse } from 'csv-parse/sync';
 import { getDatabase } from '../db';
-import { requireUserAuth, requireOrgMember } from '../middleware/auth';
+import { requireUserAuth, requireOrgMember, requireDeviceAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
 import { LeadStatus } from '@callyzer/shared-types';
 
 export const leadRouter = Router();
+
+// Device gets assigned leads for telecaller handset
+leadRouter.get('/assigned', requireDeviceAuth, async (req: Request, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const device = req.device!;
+
+  const results = await db.getLeads(device.organizationId, {
+    assignedEmployeeId: device.employeeId,
+    pageSize: 100
+  });
+
+  res.json(results.data);
+});
 
 const createLeadSchema = z.object({
   name: z.string().min(2),
