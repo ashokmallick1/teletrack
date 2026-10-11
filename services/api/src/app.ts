@@ -14,6 +14,9 @@ import { auditRouter } from './routes/audit.routes';
 import { adminRouter } from './routes/admin.routes';
 import { errorHandler } from './middleware/error';
 
+import fs from 'fs';
+import path from 'path';
+
 export function createApp(): Express {
   const app = express();
 
@@ -24,6 +27,20 @@ export function createApp(): Express {
   if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('combined'));
   }
+
+  // Direct APK download route with explicit package-archive MIME type
+  const apkPath = path.resolve(__dirname, '../../../apps/web/public/callyzer.apk');
+  const serveApk = (_req: any, res: any) => {
+    if (fs.existsSync(apkPath)) {
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', 'attachment; filename="callyzer.apk"');
+      res.sendFile(apkPath);
+    } else {
+      res.status(404).send('APK file not found');
+    }
+  };
+  app.get('/callyzer.apk', serveApk);
+  app.get('/api/v1/download/apk', serveApk);
 
   // Health check
   app.get('/api/v1/health', (req, res) => {
