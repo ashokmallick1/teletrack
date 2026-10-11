@@ -1,0 +1,28 @@
+{
+  "name": "callyzer-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant Call Analytics & Telecalling Management SaaS Platform",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev:api": "npm run dev --workspace=services/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "seed": "npm run seed --workspace=services/api"
+  },
+  "keywords": [
+    "call-analytics",
+    "telecalling",
+    "android",
+    "saas",
+    "multi-tenant"
+  ],
+  "author": "Antigravity Engineering",
+  "license": "UNLICENSED"
+}
