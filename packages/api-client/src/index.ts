@@ -162,6 +162,12 @@ export class CallyzerApiClient {
     });
   }
 
+  async clearDemoCalls(): Promise<{ message: string; deletedCount: number }> {
+    return this.request('/api/v1/call-events/clear-demo', {
+      method: 'POST'
+    });
+  }
+
   async exportCallEventsCsv(params?: Record<string, any>): Promise<string> {
     const query = new URLSearchParams(params).toString();
     const token = this.getToken ? await this.getToken() : null;

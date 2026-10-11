@@ -8,7 +8,8 @@ import {
   Trash2,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  Download
 } from 'lucide-react';
 import { Device, OrganizationMembership } from '@callyzer/shared-types';
 import { SyncStatusBadge } from '../components/Badge';
@@ -104,6 +105,14 @@ export const Devices: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="/callyzer.apk"
+            download="callyzer.apk"
+            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 shadow-sm transition"
+          >
+            <Download className="h-4 w-4" />
+            <span>Download Agent APK</span>
+          </a>
           {canManage && (
             <button
               onClick={() => {

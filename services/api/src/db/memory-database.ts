@@ -1085,6 +1085,17 @@ export class MemoryDatabase implements IDatabase {
     return { ...evt };
   }
 
+  async clearDemoCalls(orgId: string): Promise<number> {
+    let deleted = 0;
+    for (const [id, c] of this.callEvents.entries()) {
+      if (c.organizationId === orgId && (c.id.startsWith('cccccccc-cccc-cccc-cccc-cccccccc000') || c.sourceCallId.startsWith('call_log_100'))) {
+        this.callEvents.delete(id);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
   // Analytics
   async getAnalyticsOverview(orgId: string, startDate?: Date, endDate?: Date): Promise<AnalyticsOverview> {
     let items = Array.from(this.callEvents.values()).filter(c => c.organizationId === orgId);

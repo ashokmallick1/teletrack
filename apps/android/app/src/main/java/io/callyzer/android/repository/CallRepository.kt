@@ -42,14 +42,13 @@ class CallRepository(
             return@withContext 0
         }
 
-        // Fetch latest timestamp already queued, or default to 7 days ago if fresh install
-        val latestTimestamp = dao.getLatestEventTimestamp()
-            ?: (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7))
+        // If nothing queued yet, start from 0L so ALL call history present on the handset is imported
+        val latestTimestamp = dao.getLatestEventTimestamp() ?: 0L
 
         val records = callLogDataSource.fetchCallEvents(
             context = context,
             sinceTimestamp = latestTimestamp,
-            limit = 100
+            limit = 2000
         )
 
         if (records.isEmpty()) return@withContext 0
@@ -137,68 +136,85 @@ class CallRepository(
             return@withContext "Error: Device not enrolled"
         }
 
-        // 1. Poll native call log first
-        pollCallLogAndQueue()
-
-        // 2. Fetch pending events
-        val pending = dao.getPendingEvents(limit = 100)
-        if (pending.isEmpty()) {
-            tokenStorage.lastSyncTimestamp = System.currentTimeMillis()
-            tokenStorage.lastSyncStatus = "Up to date (Queue empty)"
-            return@withContext "All SIM calls are synced"
-        }
-
-        val ids = pending.map { it.id }
-        dao.updateSyncStatus(ids, SyncStatus.SYNCING)
+        // 1. Poll all native call logs first
+        val newPolled = pollCallLogAndQueue()
 
         val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
 
-        val dtos = pending.map { evt ->
-            IngestCallEventDto(
-                sourceCallId = evt.sourceCallId,
-                direction = evt.direction.name,
-                durationSeconds = evt.durationSeconds,
-                startedAt = isoFormat.format(Date(evt.startedAt)),
-                endedAt = evt.endedAt?.let { isoFormat.format(Date(it)) },
-                outcome = evt.outcome.name,
-                outcomeConfidence = evt.outcomeConfidence,
-                phoneNumber = evt.phoneNumber,
-                simSlot = evt.simSlot,
-                simCarrier = evt.simCarrier,
-                phoneAccount = evt.phoneAccount,
-                dataSource = evt.dataSource.name
-            )
-        }
+        var totalUploaded = 0
+        var totalDuplicates = 0
+        var lastError: String? = null
 
-        val request = IngestBatchRequest(
-            clientTimestamp = isoFormat.format(Date()),
-            events = dtos
-        )
+        // 2. Loop until all pending events are ingested into server
+        while (true) {
+            val pending = dao.getPendingEvents(limit = 100)
+            if (pending.isEmpty()) break
 
-        try {
-            val apiService = ApiClient.getService(tokenStorage.baseUrl)
-            val response = apiService.uploadCallBatch(apiKey, request)
-            if (response.isSuccessful && response.body() != null) {
-                val body = response.body()!!
-                dao.updateSyncStatus(ids, SyncStatus.SYNCED)
-                tokenStorage.lastSyncTimestamp = System.currentTimeMillis()
-                val statusText = "Uploaded ${body.inserted} new call(s) (${body.duplicates} dups)"
-                tokenStorage.lastSyncStatus = statusText
-                statusText
-            } else {
-                val err = "Upload failed: HTTP ${response.code()} ${response.message()}"
-                dao.markFailedWithRetry(ids, err)
-                tokenStorage.lastSyncStatus = err
-                err
+            val ids = pending.map { it.id }
+            dao.updateSyncStatus(ids, SyncStatus.SYNCING)
+
+            val dtos = pending.map { evt ->
+                IngestCallEventDto(
+                    sourceCallId = evt.sourceCallId,
+                    direction = evt.direction.name,
+                    durationSeconds = evt.durationSeconds,
+                    startedAt = isoFormat.format(Date(evt.startedAt)),
+                    endedAt = evt.endedAt?.let { isoFormat.format(Date(it)) },
+                    outcome = evt.outcome.name,
+                    outcomeConfidence = evt.outcomeConfidence,
+                    phoneNumber = evt.phoneNumber,
+                    simSlot = evt.simSlot,
+                    simCarrier = evt.simCarrier,
+                    phoneAccount = evt.phoneAccount,
+                    dataSource = evt.dataSource.name
+                )
             }
-        } catch (e: Exception) {
-            val err = "Upload error: ${e.localizedMessage ?: "Connection error"}"
-            dao.markFailedWithRetry(ids, err)
-            tokenStorage.lastSyncStatus = err
-            err
+
+            val request = IngestBatchRequest(
+                clientTimestamp = isoFormat.format(Date()),
+                events = dtos
+            )
+
+            try {
+                val apiService = ApiClient.getService(tokenStorage.baseUrl)
+                val response = apiService.uploadCallBatch(apiKey, request)
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    dao.updateSyncStatus(ids, SyncStatus.SYNCED)
+                    totalUploaded += body.inserted
+                    totalDuplicates += body.duplicates
+                } else {
+                    val err = "Upload failed: HTTP ${response.code()} ${response.message()}"
+                    dao.markFailedWithRetry(ids, err)
+                    lastError = err
+                    break
+                }
+            } catch (e: Exception) {
+                val err = "Upload error: ${e.localizedMessage ?: "Connection error"}"
+                dao.markFailedWithRetry(ids, err)
+                lastError = err
+                break
+            }
         }
+
+        tokenStorage.lastSyncTimestamp = System.currentTimeMillis()
+
+        if (lastError != null && totalUploaded == 0) {
+            tokenStorage.lastSyncStatus = lastError
+            return@withContext lastError
+        }
+
+        val statusText = if (totalUploaded > 0 || totalDuplicates > 0) {
+            "Synced $totalUploaded new call(s) ($totalDuplicates existing)"
+        } else if (newPolled > 0) {
+            "Found $newPolled calls (queued)"
+        } else {
+            "All call records up to date"
+        }
+        tokenStorage.lastSyncStatus = statusText
+        return@withContext statusText
     }
 
     fun triggerBackgroundSync() {

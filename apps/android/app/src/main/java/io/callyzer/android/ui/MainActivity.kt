@@ -13,6 +13,10 @@ import io.callyzer.android.ui.screens.manual.ManualCallLogScreen
 import io.callyzer.android.ui.screens.settings.SettingsScreen
 import io.callyzer.android.ui.theme.CallyzerTheme
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var tokenStorage: TokenStorage
@@ -40,6 +44,9 @@ class MainActivity : ComponentActivity() {
                             onEnrollmentSuccess = {
                                 repository.schedulePeriodicSync(15)
                                 repository.triggerBackgroundSync()
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    repository.syncNowDirect()
+                                }
                                 currentScreen = "home"
                             }
                         )
@@ -75,7 +82,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::tokenStorage.isInitialized && tokenStorage.isEnrolled && ::repository.isInitialized) {
-            repository.triggerBackgroundSync()
+            lifecycleScope.launch(Dispatchers.IO) {
+                repository.syncNowDirect()
+            }
         }
     }
 }

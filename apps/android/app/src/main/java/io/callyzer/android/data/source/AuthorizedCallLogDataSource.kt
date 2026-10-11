@@ -59,13 +59,14 @@ class AuthorizedCallLogDataSource : CallDataSource {
             CallLog.Calls.PHONE_ACCOUNT_ID
         )
 
-        // Reconciliation window: query calls starting after `sinceTimestamp`
-        val selection = "${CallLog.Calls.DATE} > ?"
-        val selectionArgs = arrayOf(sinceTimestamp.toString())
-        val sortOrder = "${CallLog.Calls.DATE} ASC LIMIT $limit"
+        // Query calls. If sinceTimestamp > 0, filter DATE > sinceTimestamp; otherwise collect all history
+        val selection = if (sinceTimestamp > 0) "${CallLog.Calls.DATE} > ?" else null
+        val selectionArgs = if (sinceTimestamp > 0) arrayOf(sinceTimestamp.toString()) else null
+        val sortOrder = "${CallLog.Calls.DATE} DESC"
 
         var cursor: Cursor? = null
         try {
+            android.util.Log.d("CallyzerCallLog", "Querying call logs (sinceTimestamp=$sinceTimestamp, limit=$limit)...")
             cursor = context.contentResolver.query(
                 CallLog.Calls.CONTENT_URI,
                 projection,
@@ -83,6 +84,10 @@ class AuthorizedCallLogDataSource : CallDataSource {
                 val accountIdx = c.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
 
                 while (c.moveToNext()) {
+                    if (limit > 0 && records.size >= limit) {
+                        break
+                    }
+
                     val rawId = if (idIdx >= 0) c.getString(idIdx) else null ?: continue
                     val rawNumber = if (numberIdx >= 0) c.getString(numberIdx) else null
                     val date = if (dateIdx >= 0) c.getLong(dateIdx) else 0L
@@ -117,12 +122,13 @@ class AuthorizedCallLogDataSource : CallDataSource {
                         )
                     )
                 }
+                android.util.Log.d("CallyzerCallLog", "Successfully read ${records.size} call logs from device")
             }
         } catch (e: SecurityException) {
-            // Permission revoked dynamically while running
+            android.util.Log.e("CallyzerCallLog", "READ_CALL_LOG permission not granted: ${e.message}")
             return@withContext emptyList()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("CallyzerCallLog", "Error reading call logs: ${e.message}", e)
         } finally {
             cursor?.close()
         }

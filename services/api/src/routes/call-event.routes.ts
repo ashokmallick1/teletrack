@@ -131,6 +131,13 @@ callEventRouter.post('/batch', requireDeviceOrUserAuth, validateBody(ingestBatch
   res.status(200).json(response);
 });
 
+// Clear initial seeded demo calls so only real handset calls remain
+callEventRouter.post('/clear-demo', requireUserAuth, requireOrgMember, async (req: Request, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const deleted = await db.clearDemoCalls(req.organizationId!);
+  res.status(200).json({ message: `Deleted ${deleted} demo call(s)`, deletedCount: deleted });
+});
+
 // Get paginated call history
 callEventRouter.get('/', requireUserAuth, requireOrgMember, async (req: Request, res: Response): Promise<void> => {
   const db = getDatabase();

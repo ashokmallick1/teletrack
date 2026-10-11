@@ -9,7 +9,8 @@ import {
   EyeOff,
   User,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { CallEvent, CallDirection, CallOutcome } from '@callyzer/shared-types';
 import { DirectionBadge, OutcomeBadge } from '../components/Badge';
@@ -99,6 +100,23 @@ export const CallHistory: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (confirm('Clear initial demo/seed calls to keep only your real phone call logs?')) {
+                try {
+                  await client.clearDemoCalls();
+                  loadCalls();
+                } catch (e: any) {
+                  alert('Error clearing demo calls: ' + e.message);
+                }
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm font-semibold text-red-700 hover:bg-red-100 shadow-sm transition"
+            title="Clear sample demo records"
+          >
+            <Trash2 className="h-4 w-4 text-red-500" />
+            <span>Clear Demo Data</span>
+          </button>
           <button
             onClick={handleExportCsv}
             className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition"

@@ -50,6 +50,17 @@ fun HomeScreen(
     var assignedLeads by remember { mutableStateOf<List<AssignedLeadDto>>(emptyList()) }
     var isLoadingLeads by remember { mutableStateOf(false) }
 
+    val requiredPermissions = remember {
+        val perms = mutableListOf(
+            Manifest.permission.READ_CALL_LOG,
+            Manifest.permission.READ_PHONE_STATE
+        )
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            perms.add("android.permission.POST_NOTIFICATIONS")
+        }
+        perms.toTypedArray()
+    }
+
     var hasCallLogPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -59,19 +70,34 @@ fun HomeScreen(
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasCallLogPermission = granted
-        if (granted) {
-            coroutineScope.launch {
-                repository.pollCallLogAndQueue()
+    var isSyncing by remember { mutableStateOf(false) }
+    var syncFeedbackMessage by remember { mutableStateOf<String?>(null) }
+
+    fun doFullSync() {
+        if (!hasCallLogPermission) return
+        isSyncing = true
+        syncFeedbackMessage = null
+        coroutineScope.launch {
+            try {
+                val result = repository.syncNowDirect()
+                syncFeedbackMessage = result
+            } catch (e: Exception) {
+                syncFeedbackMessage = "Sync error: ${e.message}"
+            } finally {
+                isSyncing = false
             }
         }
     }
 
-    var isSyncing by remember { mutableStateOf(false) }
-    var syncFeedbackMessage by remember { mutableStateOf<String?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results[Manifest.permission.READ_CALL_LOG] == true
+        hasCallLogPermission = granted
+        if (granted) {
+            doFullSync()
+        }
+    }
 
     fun refreshLeads() {
         isLoadingLeads = true
@@ -87,6 +113,11 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         refreshLeads()
+        if (!hasCallLogPermission) {
+            permissionLauncher.launch(requiredPermissions)
+        } else {
+            doFullSync()
+        }
     }
 
     Column(
@@ -218,7 +249,7 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.height(10.dp))
                             Button(
                                 onClick = {
-                                    permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+                                    permissionLauncher.launch(requiredPermissions)
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
                                 shape = RoundedCornerShape(8.dp),
@@ -271,12 +302,10 @@ fun HomeScreen(
 
                             Button(
                                 onClick = {
-                                    isSyncing = true
-                                    syncFeedbackMessage = null
-                                    coroutineScope.launch {
-                                        val result = repository.syncNowDirect()
-                                        syncFeedbackMessage = result
-                                        isSyncing = false
+                                    if (!hasCallLogPermission) {
+                                        permissionLauncher.launch(requiredPermissions)
+                                    } else {
+                                        doFullSync()
                                         refreshLeads()
                                     }
                                 },
@@ -286,9 +315,9 @@ fun HomeScreen(
                                 if (isSyncing) {
                                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Uploading...", fontSize = 13.sp)
+                                    Text("Collecting & Uploading...", fontSize = 13.sp)
                                 } else {
-                                    Text("Sync with Web App", fontSize = 13.sp)
+                                    Text("Sync All SIM Calls", fontSize = 13.sp)
                                 }
                             }
                         }

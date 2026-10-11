@@ -122,6 +122,7 @@ export interface IDatabase {
   ): Promise<PaginatedResult<CallEvent>>;
   
   getCallEventById(orgId: string, eventId: string): Promise<CallEvent | null>;
+  clearDemoCalls(orgId: string): Promise<number>;
 
   // Analytics
   getAnalyticsOverview(orgId: string, startDate?: Date, endDate?: Date): Promise<AnalyticsOverview>;
