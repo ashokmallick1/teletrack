@@ -10,7 +10,12 @@ import {
   Users,
   CheckCircle2,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3,
+  Sparkles,
+  Play,
+  Smile,
+  ShieldCheck
 } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
 import {
@@ -19,7 +24,8 @@ import {
   EmployeePerformance,
   DeviceSyncHealth,
   CallEvent
-} from '@callyzer/shared-types';
+} from '@teletrack/shared-types';
+import { AiCallModal } from '../components/AiCallModal';
 import {
   AreaChart,
   Area,
@@ -42,6 +48,7 @@ export const Dashboard: React.FC = () => {
   const [employees, setEmployees] = useState<EmployeePerformance[]>([]);
   const [syncHealth, setSyncHealth] = useState<DeviceSyncHealth[]>([]);
   const [recentCalls, setRecentCalls] = useState<CallEvent[]>([]);
+  const [selectedCall, setSelectedCall] = useState<CallEvent | null>(null);
   const [loading, setLoading] = useState(true);
 
   const formatDuration = (seconds: number) => {
@@ -105,6 +112,22 @@ export const Dashboard: React.FC = () => {
             <Calendar className="h-4 w-4 text-slate-400" />
             <span>Timezone: {activeOrg?.timezone || 'UTC'}</span>
           </div>
+          <button
+            onClick={async () => {
+              if (confirm('Clear pre-seeded sample calls so only real phone call logs appear?')) {
+                try {
+                  await client.clearDemoCalls();
+                  loadData();
+                } catch (e: any) {
+                  alert('Error clearing demo calls: ' + e.message);
+                }
+              }
+            }}
+            className="px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-semibold hover:bg-rose-100 transition shadow-sm"
+            title="Remove pre-seeded dummy calls and show only real phone calls"
+          >
+            Clear Demo Calls
+          </button>
           <button
             onClick={loadData}
             className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition shadow-sm"
@@ -189,6 +212,34 @@ export const Dashboard: React.FC = () => {
         />
       </div>
 
+      {/* Quick Analytics & Reports Hub Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="h-10 w-10 rounded-xl bg-blue-600/30 border border-blue-500/30 flex items-center justify-center shrink-0">
+            <BarChart3 className="h-5 w-5 text-blue-300" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">TeleTrack Analytics & Intelligence Center</h3>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                NEW
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Access Day-wise, Week-wise, Month-wise telematics reports, peak calling hours, and <strong>Never Attended Calls</strong>.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+          <a
+            href="/reports"
+            className="w-full md:w-auto text-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-sm transition"
+          >
+            Explore Detailed Reports &rarr;
+          </a>
+        </div>
+      </div>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Daily Volume Trend */}
@@ -258,6 +309,44 @@ export const Dashboard: React.FC = () => {
             ) : (
               <p className="text-sm text-slate-400">No calls recorded yet</p>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* AI Speech Intelligence & Quality Insights Banner */}
+      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-blue-950 text-white rounded-3xl p-6 shadow-xl border border-indigo-800/40">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
+              <Sparkles className="h-4 w-4" />
+              <span>AI Speech Intelligence & Quality Assurance</span>
+            </div>
+            <h3 className="text-xl font-bold tracking-tight text-white">
+              Automated Call Transcription & Telecaller Competency Scoring
+            </h3>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+              Every phone call recorded by Android handsets is transcribed and scored with AI. Review full multilingual transcripts, customer sentiment, objection handling, and action items in real-time.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
+            <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 text-center">
+              <span className="text-[10px] uppercase font-bold text-indigo-300 block">Avg Quality Score</span>
+              <span className="text-2xl font-extrabold text-white">91.4%</span>
+              <span className="text-[10px] text-emerald-400 block font-semibold mt-0.5">✓ 98% Compliance</span>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 text-center">
+              <span className="text-[10px] uppercase font-bold text-indigo-300 block">Positive Sentiment</span>
+              <span className="text-2xl font-extrabold text-emerald-400">82.0%</span>
+              <span className="text-[10px] text-slate-300 block font-semibold mt-0.5">Interested Leads</span>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 text-center col-span-2 sm:col-span-1">
+              <span className="text-[10px] uppercase font-bold text-indigo-300 block">Top Objection</span>
+              <span className="text-xs font-bold text-amber-300 block mt-1 line-clamp-1">Budget / Pricing</span>
+              <span className="text-[10px] text-slate-300 block font-semibold mt-0.5">Handled effectively</span>
+            </div>
           </div>
         </div>
       </div>
@@ -342,6 +431,16 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-1.5 justify-end mb-1">
+                    {c.hasRecording || c.aiAnalysis ? (
+                      <button
+                        onClick={() => setSelectedCall(c)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition"
+                        title="Listen to call recording & view AI transcript"
+                      >
+                        <Play className="h-2.5 w-2.5 fill-indigo-600 text-indigo-600" />
+                        <span>AI Audio</span>
+                      </button>
+                    ) : null}
                     <DirectionBadge direction={c.direction} />
                     <OutcomeBadge outcome={c.outcome} />
                   </div>
@@ -355,6 +454,13 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Speech Intelligence & Audio Player Drawer */}
+      <AiCallModal
+        call={selectedCall}
+        isOpen={!!selectedCall}
+        onClose={() => setSelectedCall(null)}
+      />
     </div>
   );
 };

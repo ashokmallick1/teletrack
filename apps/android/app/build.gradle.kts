@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "io.callyzer.android"
+    namespace = "io.teletrack.android"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.callyzer.android"
+        applicationId = "io.teletrack.android"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

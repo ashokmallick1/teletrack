@@ -42,3 +42,24 @@ analyticsRouter.get('/sync-health', requireUserAuth, requireOrgMember, async (re
   const health = await db.getDeviceSyncHealth(req.organizationId!);
   res.json(health);
 });
+
+analyticsRouter.get('/reports', requireUserAuth, requireOrgMember, async (req: Request, res: Response): Promise<void> => {
+  const db = getDatabase();
+  const { startDate, endDate, employeeId, teamId } = req.query as {
+    startDate?: string;
+    endDate?: string;
+    employeeId?: string;
+    teamId?: string;
+  };
+  const report = await db.getAdvancedAnalytics(
+    req.organizationId!,
+    {
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      employeeId,
+      teamId
+    }
+  );
+  res.json(report);
+});
+

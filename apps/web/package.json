@@ -1,5 +1,5 @@
 {
-  "name": "@callyzer/web",
+  "name": "@teletrack/web",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@callyzer/api-client": "^1.0.0",
-    "@callyzer/shared-types": "^1.0.0",
+    "@teletrack/api-client": "^1.0.0",
+    "@teletrack/shared-types": "^1.0.0",
     "@tanstack/react-query": "^5.66.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

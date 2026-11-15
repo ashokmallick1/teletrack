@@ -1,5 +1,5 @@
 import React from 'react';
-import { CallDirection, CallOutcome, DeviceStatus, LeadStatus } from '@callyzer/shared-types';
+import { CallDirection, CallOutcome, DeviceStatus, LeadStatus } from '@teletrack/shared-types';
 
 export const DirectionBadge: React.FC<{ direction: CallDirection }> = ({ direction }) => {
   switch (direction) {

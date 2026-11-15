@@ -1,12 +1,13 @@
 {
-  "name": "callyzer-platform",
+  "name": "teletrack-platform",
   "version": "1.0.0",
   "private": true,
   "description": "Multi-tenant Call Analytics & Telecalling Management SaaS Platform",
   "workspaces": [
     "packages/*",
     "services/*",
-    "apps/web"
+    "apps/web",
+    "apps/desktop"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

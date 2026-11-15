@@ -1,0 +1,19 @@
+{
+  "name": "@teletrack/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TeleTrack Windows Desktop Activity & Productivity Agent",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc && node copy-assets.cjs",
+    "start": "tsc && node copy-assets.cjs && electron .",
+    "dev": "tsc && node copy-assets.cjs && electron ."
+  },
+  "dependencies": {
+    "@teletrack/shared-types": "^1.0.0"
+  },
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "typescript": "^5.8.0"
+  }
+}

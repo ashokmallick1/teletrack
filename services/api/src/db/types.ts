@@ -23,14 +23,33 @@ import {
   DailyCallTrend,
   EmployeePerformance,
   DeviceSyncHealth,
-  PaginatedResult
-} from '@callyzer/shared-types';
+  PaginatedResult,
+  AdvancedAnalyticsResponse,
+  UnattendedCallItem,
+  TimeGroupedReportItem,
+  DesktopDevice,
+  DesktopActivitySlot,
+  DesktopClockEvent,
+  IngestDesktopActivityDto,
+  WorkStatus,
+  ProductivityOverviewResponse,
+  EmployeeProductivitySummary,
+  CallAiAnalysis,
+  CallingCampaign,
+  CampaignLead,
+  CampaignStatus,
+  CampaignLeadStatus,
+  WhatsAppTemplate,
+  WebhookConfig
+} from '@teletrack/shared-types';
 
 export interface IDatabase {
   // Profiles & Auth
   findProfileByEmail(email: string): Promise<(UserProfile & { passwordHash?: string }) | null>;
+  findProfileByIdentifier(identifier: string): Promise<(UserProfile & { passwordHash?: string }) | null>;
   findProfileById(id: string): Promise<UserProfile | null>;
-  createProfile(profile: Partial<UserProfile> & { email: string; fullName: string; passwordHash: string }): Promise<UserProfile>;
+  createProfile(profile: Partial<UserProfile> & { email: string; fullName: string; passwordHash: string; username?: string }): Promise<UserProfile>;
+  updateProfilePassword(userId: string, passwordHash: string): Promise<boolean>;
   
   // Organizations & Memberships
   getUserMemberships(userId: string): Promise<OrganizationMembership[]>;
@@ -41,6 +60,7 @@ export interface IDatabase {
   getOrgMembers(orgId: string): Promise<OrganizationMembership[]>;
   getMembership(orgId: string, userId: string): Promise<OrganizationMembership | null>;
   createMembership(data: { organizationId: string; userId: string; role: UserRole; teamId?: string; employeeCode?: string }): Promise<OrganizationMembership>;
+  updateMembership(orgId: string, membershipId: string, data: { role?: UserRole; teamId?: string | null; employeeCode?: string; isActive?: boolean }): Promise<OrganizationMembership | null>;
   
   // Teams
   getTeams(orgId: string): Promise<Team[]>;
@@ -122,6 +142,13 @@ export interface IDatabase {
   ): Promise<PaginatedResult<CallEvent>>;
   
   getCallEventById(orgId: string, eventId: string): Promise<CallEvent | null>;
+  updateCallEventRecording(orgId: string, callId: string, data: {
+    recordingUrl: string;
+    durationSeconds?: number;
+    fileSize?: number;
+    aiAnalysis?: CallAiAnalysis;
+  }): Promise<CallEvent | null>;
+  updateCallAiAnalysis(orgId: string, callId: string, analysis: CallAiAnalysis): Promise<CallEvent | null>;
   clearDemoCalls(orgId: string): Promise<number>;
 
   // Analytics
@@ -129,6 +156,15 @@ export interface IDatabase {
   getDailyTrends(orgId: string, startDate?: Date, endDate?: Date): Promise<DailyCallTrend[]>;
   getEmployeePerformance(orgId: string, startDate?: Date, endDate?: Date): Promise<EmployeePerformance[]>;
   getDeviceSyncHealth(orgId: string): Promise<DeviceSyncHealth[]>;
+  getAdvancedAnalytics(
+    orgId: string,
+    options?: {
+      startDate?: Date;
+      endDate?: Date;
+      employeeId?: string;
+      teamId?: string;
+    }
+  ): Promise<AdvancedAnalyticsResponse>;
 
   // Leads
   getLeads(
@@ -164,4 +200,67 @@ export interface IDatabase {
   // Super Admin
   getAllOrganizations(): Promise<any[]>;
   getSystemUsage(): Promise<any>;
+
+  // Desktop Tracking & Unified Productivity
+  getDesktopDevices(orgId: string): Promise<DesktopDevice[]>;
+  getDesktopDeviceById(deviceId: string): Promise<DesktopDevice | null>;
+  registerDesktopDevice(data: {
+    organizationId: string;
+    employeeId: string;
+    hostname: string;
+    osName: string;
+    osVersion: string;
+    appVersion: string;
+  }): Promise<DesktopDevice>;
+  createDesktopDeviceSession(deviceId: string, apiKeyHash: string, expiresAt: Date): Promise<void>;
+  findDesktopDeviceByApiKeyHash(apiKeyHash: string): Promise<DesktopDevice | null>;
+  updateDesktopDeviceStatus(deviceId: string, status: WorkStatus, currentApp?: string, currentWindowTitle?: string): Promise<void>;
+  ingestDesktopActivity(
+    orgId: string,
+    deviceId: string,
+    employeeId: string,
+    slots: IngestDesktopActivityDto[]
+  ): Promise<{ inserted: number }>;
+  recordDesktopClockEvent(data: {
+    organizationId: string;
+    employeeId: string;
+    deviceId?: string;
+    type: 'CLOCK_IN' | 'CLOCK_OUT' | 'BREAK_START' | 'BREAK_END';
+    note?: string;
+  }): Promise<DesktopClockEvent>;
+  getProductivityOverview(
+    orgId: string,
+    startDate?: Date,
+    endDate?: Date,
+    teamId?: string
+  ): Promise<ProductivityOverviewResponse>;
+  getEmployeeProductivity(
+    orgId: string,
+    employeeId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<EmployeeProductivitySummary | null>;
+
+  // Calling Campaigns & Power Dialer
+  getCallingCampaigns(orgId: string): Promise<CallingCampaign[]>;
+  getCallingCampaignById(orgId: string, campaignId: string): Promise<CallingCampaign | null>;
+  createCallingCampaign(
+    orgId: string,
+    data: {
+      name: string;
+      description?: string;
+      assignedEmployeeIds?: string[];
+      leads: Array<{ name: string; phoneNumber: string; company?: string }>;
+    }
+  ): Promise<CallingCampaign>;
+  updateCallingCampaign(orgId: string, campaignId: string, data: Partial<CallingCampaign>): Promise<CallingCampaign | null>;
+  updateCampaignLead(orgId: string, campaignId: string, leadId: string, data: Partial<CampaignLead>): Promise<CampaignLead | null>;
+
+  // WhatsApp Templates
+  getWhatsAppTemplates(): Promise<WhatsAppTemplate[]>;
+
+  // Webhooks
+  getWebhooks(orgId: string): Promise<WebhookConfig[]>;
+  createWebhook(orgId: string, data: { url: string; events: string[]; secret?: string }): Promise<WebhookConfig>;
+  deleteWebhook(orgId: string, webhookId: string): Promise<boolean>;
 }

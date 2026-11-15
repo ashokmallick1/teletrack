@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { getDatabase } from '../db';
-import { UserRole } from '@callyzer/shared-types';
+import { UserRole } from '@teletrack/shared-types';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'callyzer-super-secret-jwt-key-2026';
+export const JWT_SECRET = process.env.JWT_SECRET || 'teletrack-super-secret-jwt-key-2026';
 
 export interface AuthenticatedUser {
   id: string;
@@ -21,6 +21,13 @@ export interface AuthenticatedDevice {
   deviceName: string;
 }
 
+export interface AuthenticatedDesktopDevice {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  hostname: string;
+}
+
 declare global {
   namespace Express {
     interface Request {
@@ -32,6 +39,7 @@ declare global {
         teamId?: string;
       };
       device?: AuthenticatedDevice;
+      desktopDevice?: AuthenticatedDesktopDevice;
     }
   }
 }
@@ -145,6 +153,31 @@ export async function requireDeviceAuth(req: Request, res: Response, next: NextF
     employeeId: device.employeeId,
     deviceIdentifier: device.deviceIdentifier,
     deviceName: device.deviceName
+  };
+  next();
+}
+
+export async function requireDesktopAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const apiKey = (req.headers['x-desktop-api-key'] || req.headers['x-device-api-key']) as string;
+  if (!apiKey) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Missing x-desktop-api-key header' });
+    return;
+  }
+
+  const apiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  const db = getDatabase();
+  const desktop = await db.findDesktopDeviceByApiKeyHash(apiKeyHash);
+
+  if (!desktop) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid or revoked desktop API key' });
+    return;
+  }
+
+  req.desktopDevice = {
+    id: desktop.id,
+    organizationId: desktop.organizationId,
+    employeeId: desktop.employeeId,
+    hostname: desktop.hostname
   };
   next();
 }

@@ -9,8 +9,8 @@ import { validateBody } from '../middleware/validation';
 export const authRouter = Router();
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6)
+  email: z.string().min(1),
+  password: z.string().min(1)
 });
 
 const registerSchema = z.object({
@@ -24,16 +24,16 @@ authRouter.post('/login', validateBody(loginSchema), async (req: Request, res: R
   const { email, password } = req.body;
   const db = getDatabase();
 
-  const profile = await db.findProfileByEmail(email);
+  const profile = await db.findProfileByIdentifier(email);
   if (!profile || !profile.passwordHash) {
-    res.status(401).json({ error: 'Unauthorized', message: 'Invalid email or password' });
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid User ID/Email or password' });
     return;
   }
 
   // Support demo default hash or bcrypt compare
   const isMatch = await bcrypt.compare(password, profile.passwordHash) || password === 'Password123!';
   if (!isMatch) {
-    res.status(401).json({ error: 'Unauthorized', message: 'Invalid email or password' });
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid User ID/Email or password' });
     return;
   }
 

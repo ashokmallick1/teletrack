@@ -10,10 +10,13 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  Play,
+  Sparkles
 } from 'lucide-react';
-import { CallEvent, CallDirection, CallOutcome } from '@callyzer/shared-types';
+import { CallEvent, CallDirection, CallOutcome } from '@teletrack/shared-types';
 import { DirectionBadge, OutcomeBadge } from '../components/Badge';
+import { AiCallModal } from '../components/AiCallModal';
 
 export const CallHistory: React.FC = () => {
   const { client, activeOrg, activeMembership } = useAuth();
@@ -28,6 +31,7 @@ export const CallHistory: React.FC = () => {
   const [direction, setDirection] = useState<string>('');
   const [outcome, setOutcome] = useState<string>('');
   const [showMasked, setShowMasked] = useState(activeOrg?.maskPhoneNumbers ?? false);
+  const [selectedCall, setSelectedCall] = useState<CallEvent | null>(null);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -186,6 +190,7 @@ export const CallHistory: React.FC = () => {
                 <th className="px-6 py-3.5">Direction</th>
                 <th className="px-6 py-3.5">Outcome</th>
                 <th className="px-6 py-3.5">Duration</th>
+                <th className="px-6 py-3.5 text-center">AI Speech & Audio</th>
                 <th className="px-6 py-3.5">SIM / Device</th>
                 <th className="px-6 py-3.5">Associated Lead</th>
                 <th className="px-6 py-3.5">Source</th>
@@ -215,6 +220,34 @@ export const CallHistory: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-slate-700 font-medium">
                     {formatDuration(c.durationSeconds)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {c.hasRecording || c.aiAnalysis ? (
+                      <button
+                        onClick={() => setSelectedCall(c)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-700 hover:from-indigo-100 hover:to-blue-100 border border-indigo-200 shadow-sm transition"
+                        title="Listen to recording & view AI transcript"
+                      >
+                        <Play className="h-3 w-3 fill-indigo-600 text-indigo-600" />
+                        <span>AI Intel</span>
+                        {c.aiAnalysis?.qualityScore?.overall && (
+                          <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-extrabold">
+                            {c.aiAnalysis.qualityScore.overall}%
+                          </span>
+                        )}
+                      </button>
+                    ) : c.outcome === 'ANSWERED' && c.durationSeconds >= 10 ? (
+                      <button
+                        onClick={() => setSelectedCall(c)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition"
+                        title="Analyze call with AI"
+                      >
+                        <Sparkles className="h-3 w-3 text-indigo-500" />
+                        <span>Analyze</span>
+                      </button>
+                    ) : (
+                      <span className="text-slate-300 text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500">
                     <p className="font-medium text-slate-700">{c.simCarrier || 'Default SIM'}</p>
@@ -271,6 +304,17 @@ export const CallHistory: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Speech Analytics & Audio Player Drawer */}
+      <AiCallModal
+        call={selectedCall}
+        isOpen={!!selectedCall}
+        onClose={() => setSelectedCall(null)}
+        onAnalysisUpdated={updated => {
+          setSelectedCall(updated);
+          setCalls(prev => prev.map(c => c.id === updated.id ? updated : c));
+        }}
+      />
     </div>
   );
 };

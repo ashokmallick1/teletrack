@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: callyzer-postgres
+    container_name: teletrack-postgres
     restart: always
     environment:
-      POSTGRES_USER: callyzer_user
-      POSTGRES_PASSWORD: callyzer_password_dev_only
-      POSTGRES_DB: callyzer_db
+      POSTGRES_USER: teletrack_user
+      POSTGRES_PASSWORD: teletrack_password_dev_only
+      POSTGRES_DB: teletrack_db
     ports:
       - "5432:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
       - ./database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
       - ./database/seed/seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U callyzer_user -d callyzer_db"]
+      test: ["CMD-SHELL", "pg_isready -U teletrack_user -d teletrack_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: services/api/Dockerfile
-    container_name: callyzer-api
+    container_name: teletrack-api
     restart: always
     depends_on:
       postgres:
@@ -34,7 +34,7 @@ services:
       NODE_ENV: production
       PORT: 4000
       JWT_SECRET: dev_jwt_secret_change_in_production_2026
-      DATABASE_URL: postgresql://callyzer_user:callyzer_password_dev_only@postgres:5432/callyzer_db
+      DATABASE_URL: postgresql://teletrack_user:teletrack_password_dev_only@postgres:5432/teletrack_db
 
 volumes:
   pgdata:

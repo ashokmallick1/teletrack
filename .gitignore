@@ -38,3 +38,12 @@ app/build/
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Local Persistence & Data
+services/api/data/
+services/api/uploads/
+*.tar.gz
+playwright-report/
+test-results/
+playwright-results/
+

@@ -8,13 +8,16 @@ function apkMimePlugin(): Plugin {
     name: 'apk-mime-plugin',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (req.url && (req.url === '/callyzer.apk' || req.url.startsWith('/callyzer.apk?'))) {
-          const apkFile = path.resolve(__dirname, 'public/callyzer.apk');
+        if (req.url && (req.url === '/teletrack.apk' || req.url.startsWith('/teletrack.apk?'))) {
+          const apkFile = path.resolve(__dirname, 'public/teletrack.apk');
           if (fs.existsSync(apkFile)) {
             const stat = fs.statSync(apkFile);
             res.writeHead(200, {
               'Content-Type': 'application/vnd.android.package-archive',
-              'Content-Disposition': 'attachment; filename="callyzer.apk"',
+              'Content-Disposition': 'attachment; filename="teletrack.apk"',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0',
               'Content-Length': stat.size
             });
             fs.createReadStream(apkFile).pipe(res);

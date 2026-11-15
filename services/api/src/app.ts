@@ -12,6 +12,12 @@ import { leadRouter } from './routes/lead.routes';
 import { followUpRouter } from './routes/follow-up.routes';
 import { auditRouter } from './routes/audit.routes';
 import { adminRouter } from './routes/admin.routes';
+import { desktopRouter } from './routes/desktop.routes';
+import { productivityRouter } from './routes/productivity.routes';
+import { callRecordingRouter } from './routes/call-recording.routes';
+import { campaignRouter } from './routes/campaign.routes';
+import { whatsappRouter } from './routes/whatsapp.routes';
+import { webhookRouter } from './routes/webhook.routes';
 import { errorHandler } from './middleware/error';
 
 import fs from 'fs';
@@ -29,31 +35,38 @@ export function createApp(): Express {
   }
 
   // Direct APK download route with explicit package-archive MIME type
-  const apkPath = path.resolve(__dirname, '../../../apps/web/public/callyzer.apk');
+  const apkPath = path.resolve(__dirname, '../../../apps/web/public/teletrack.apk');
   const serveApk = (_req: any, res: any) => {
     if (fs.existsSync(apkPath)) {
       res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-      res.setHeader('Content-Disposition', 'attachment; filename="callyzer.apk"');
+      res.setHeader('Content-Disposition', 'attachment; filename="teletrack.apk"');
       res.sendFile(apkPath);
     } else {
       res.status(404).send('APK file not found');
     }
   };
-  app.get('/callyzer.apk', serveApk);
+  app.get('/teletrack.apk', serveApk);
   app.get('/api/v1/download/apk', serveApk);
 
-  // Health check
-  app.get('/api/v1/health', (req, res) => {
+  // Health checks
+  const healthHandler = (_req: any, res: any) => {
     res.json({
       status: 'healthy',
-      service: 'callyzer-api',
+      service: 'teletrack-api',
       version: '1.0.0',
       timestamp: new Date().toISOString()
     });
-  });
+  };
+  app.get('/health', healthHandler);
+  app.get('/api/health', healthHandler);
+  app.get('/api/v1/health', healthHandler);
 
   // REST API v1 Routes
   app.use('/api/v1/auth', authRouter);
+  app.get('/api/v1/me', (req, res, next) => {
+    req.url = '/me';
+    authRouter(req, res, next);
+  });
   app.use('/api/v1/organizations', orgRouter);
   app.use('/api/v1/employees', employeeRouter);
   app.use('/api/v1/teams', teamRouter);
@@ -64,6 +77,12 @@ export function createApp(): Express {
   app.use('/api/v1/follow-ups', followUpRouter);
   app.use('/api/v1/audit-logs', auditRouter);
   app.use('/api/v1/admin', adminRouter);
+  app.use('/api/v1/desktop', desktopRouter);
+  app.use('/api/v1/productivity', productivityRouter);
+  app.use('/api/v1/call-recordings', callRecordingRouter);
+  app.use('/api/v1/campaigns', campaignRouter);
+  app.use('/api/v1/whatsapp', whatsappRouter);
+  app.use('/api/v1/webhooks', webhookRouter);
 
   // 404 handler
   app.use((req, res) => {

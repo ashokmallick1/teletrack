@@ -7,9 +7,12 @@ import {
   Smartphone,
   UserCheck,
   BarChart3,
+  Monitor,
   Settings,
   ShieldAlert,
-  ChevronRight
+  ChevronRight,
+  PhoneForwarded,
+  Trophy
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,11 +23,14 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { label: 'Power Dialer', path: '/dialer', icon: PhoneForwarded },
     { label: 'Call History', path: '/calls', icon: PhoneCall },
+    { label: 'Productivity & Desktop', path: '/productivity', icon: Monitor },
+    { label: 'TV Leaderboard', path: '/tv-leaderboard', icon: Trophy },
     { label: 'Employees', path: '/employees', icon: Users },
     { label: 'Devices', path: '/devices', icon: Smartphone },
     { label: 'Leads & CRM', path: '/leads', icon: UserCheck },
-    { label: 'Reports', path: '/reports', icon: BarChart3 },
+    { label: 'Analytics & Reports', path: '/reports', icon: BarChart3 },
     ...(isOrgAdmin ? [{ label: 'Settings', path: '/settings', icon: Settings }] : []),
     ...(isSuperAdmin ? [{ label: 'Super Admin', path: '/super-admin', icon: ShieldAlert }] : [])
   ];
@@ -34,10 +40,10 @@ export const Sidebar: React.FC = () => {
       {/* Brand */}
       <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
         <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20">
-          C
+          T
         </div>
         <div>
-          <span className="font-bold text-white tracking-tight text-base">Callyzer</span>
+          <span className="font-bold text-white tracking-tight text-base">TeleTrack</span>
           <span className="text-xs text-blue-400 font-semibold ml-1.5 px-1.5 py-0.5 rounded bg-blue-950 border border-blue-800/60">
             PRO
           </span>

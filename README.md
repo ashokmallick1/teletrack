@@ -1,142 +1,221 @@
-# Callyzer Platform — Enterprise SIM Call Analytics SaaS
+# 📞 TeleTrack — Enterprise SIM Call Analytics, Desktop Productivity & AI Telecalling SaaS
 
-A production-grade, multi-tenant call analytics and telecalling management SaaS platform inspired by Callyzer. The system monitors employee call activity from normal SIM-based calls made via Android smartphones using the native phone dialer, without replacing the dialer or capturing microphone audio.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Android%20%7C%20Windows-blue)](https://teletrack.bhashaai.in)
+[![Cloud](https://img.shields.io/badge/Deployed%20on-Oracle%20Cloud%20%2B%20Coolify-orange)](https://ashokmallickone.bhashaai.in)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp%20Gateway-Evolution%20API%20v2.3.7-brightgreen)](https://github.com/evolution-foundation/evolution-api)
+
+> **GitHub Repository**: [https://github.com/ashokmallick1/teletrack](https://github.com/ashokmallick1/teletrack)  
+> **Production Web App**: [https://teletrack.bhashaai.in](https://teletrack.bhashaai.in)  
+> **Production API Server**: [https://teletrack-api.bhashaai.in](https://teletrack-api.bhashaai.in)  
+> **Coolify Platform Console**: [https://ashokmallickone.bhashaai.in](https://ashokmallickone.bhashaai.in)  
+> **Evolution WhatsApp Engine**: [https://github.com/evolution-foundation/evolution-api](https://github.com/evolution-foundation/evolution-api)
 
 ---
 
-## 1. System Architecture
+## 1. 📖 Product Description
 
-The platform consists of:
-1. **Web Application (`apps/web`)**: A responsive SaaS portal for company owners, managers, and platform super administrators (React, TypeScript, Vite, Tailwind CSS, Recharts).
-2. **Native Android Application (`apps/android`)**: A background telematics agent that collects SIM call logs via authorized Android APIs and queues them locally for reliable batch synchronization (Kotlin, Jetpack Compose, Room, WorkManager, Retrofit).
-3. **Backend REST API (`services/api`)**: Node.js/TypeScript REST API with Zod validation, rate limiting, structured logging, and multi-tenant isolation.
-4. **Database & Migrations (`database/`)**: PostgreSQL schema with Row Level Security (RLS) policies, indexes, and comprehensive seed data.
-5. **Shared Packages (`packages/`)**: `@callyzer/shared-types` (domain entities) and `@callyzer/api-client` (typed API client).
+**TeleTrack** is a unified, enterprise-grade telecalling management, call analytics, and employee productivity platform. Designed for organizations with field agents, inside-sales teams, customer support representatives, and distributed workforces, TeleTrack bridges the gap between **SIM-based mobile calling**, **desktop workstation activity**, and **automated customer engagement**.
+
+### The Problem It Solves
+Traditional telecalling teams face multiple blind spots:
+1. **Untracked SIM Calls**: Most sales agents use native SIM cards on company or personal Android phones. Managers have zero visibility into actual call volumes, talk time, connection rates, or customer conversations.
+2. **Lack of Conversation Intelligence**: Without call recordings and transcription, customer sentiment, objection handling, and compliance breaches cannot be audited.
+3. **Disjointed Workstation Tracking**: Remote or in-office agents spend time across web browsers, ERPs, and spreadsheets, but managers cannot measure active vs. idle time or desktop application productivity.
+4. **Manual Follow-ups & CRM Friction**: Telecallers waste hours manually drafting WhatsApp messages or logging lead statuses.
+
+### The TeleTrack Solution
+TeleTrack continuously synchronizes call logs from native Android dialers, records conversations for automated AI quality audits, monitors workstation active/idle slots from a lightweight Windows desktop client, and integrates with WhatsApp via an embedded Evolution API gateway — all managed from a centralized multi-tenant web cloud.
+
+---
+
+## 2. 🎯 What TeleTrack Is Supposed To Do
+
+```mermaid
+flowchart TD
+    subgraph MobileDevice["📱 Android Mobile Agent"]
+        NativeDialer["Native Android Phone Dialer"] --> SIMCall["Incoming / Outgoing SIM Call"]
+        SIMCall --> CallRecorder["Audio Recorder (WAV/AAC)"]
+        SIMCall --> CallLogReader["CallLog ContentProvider"]
+        CallLogReader --> LocalRoomDB["Local SQLite (Room)"]
+        CallRecorder --> UploadQueue["WorkManager Upload Queue"]
+        LocalRoomDB --> WorkManagerSync["Encrypted HTTPS Sync Worker"]
+    end
+
+    subgraph Workstation["💻 Windows Desktop Agent"]
+        WinActivity["Active Window & Process Monitor"] --> IdleCheck["Mouse/Keyboard Idle Detection"]
+        IdleCheck --> SlotAggregator["5-Min Activity Aggregator"]
+        SlotAggregator --> DesktopSyncWorker["Desktop Background Sync"]
+    end
+
+    subgraph CloudServer["☁️ TeleTrack Cloud Platform (Coolify + OCI)"]
+        NginxProxy["Nginx Reverse Proxy (teletrack.bhashaai.in)"]
+        ApiServer["TeleTrack REST API (teletrack-api.bhashaai.in)"]
+        MemDB[("Database (5,158+ Persistent Call Records)")]
+        AiEngine["AI Audio Analyzer & Sentiment Engine"]
+        EvoGateway["Evolution WhatsApp Gateway (Baileys Engine)"]
+
+        NginxProxy --> ApiServer
+        ApiServer <--> MemDB
+        ApiServer <--> AiEngine
+        ApiServer <--> EvoGateway
+    end
+
+    subgraph AdminPortal["🖥️ Web Portal & CRM"]
+        WebDashboard["Analytics Dashboard & KPI Charts"]
+        CallTable["Call History & Audio Player"]
+        ProdDashboard["Desktop Productivity Timeline"]
+        UserMgmt["Employee Provisioning & Pairing QR"]
+        WhatsAppTab["WhatsApp Broadcast & Campaign Suite"]
+        TvArena["Sales Floor TV Arena Leaderboard"]
+    end
+
+    WorkManagerSync -->|"Encrypted REST Batch"| NginxProxy
+    UploadQueue -->|"Audio File Upload"| NginxProxy
+    DesktopSyncWorker -->|"Activity Slots"| NginxProxy
+    ApiServer --> AdminPortal
+```
+
+### Key Capabilities & Workflows
+
+#### 1. 📱 Native Android Telematics Agent (`apps/android`)
+- **Native SIM Telephony**: Agents make and receive calls using their phone's native SIM dialer (Samsung, Xiaomi, Vivo, etc.) without requiring VoIP, SIP trunks, or changing the dialing experience.
+- **Background Call Log Harvesting**: Captures timestamp, duration, direction (Inbound, Outbound, Missed, Rejected), and SIM slot index.
+- **Call Recording & Auto-Upload**: Captures call audio via authorized audio APIs and uploads the recording file in the background directly to the TeleTrack server.
+- **Offline Resiliency**: Employs Room SQLite database (`queued_call_events`) and Android `WorkManager` with exponential retry policies. Calls are queued offline and automatically synced once an internet connection is restored.
+- **Fleet Diagnostics**: Reports battery level, connectivity type (Wi-Fi/5G), app version, and sync health to alert managers if an agent turns off background permissions.
+
+#### 2. 💻 Windows Workstation Productivity Agent (`apps/desktop`)
+- **Active Application Tracking**: Records active window titles and executable names (e.g. Chrome, Excel, CRM, VS Code, Idle) in 5-minute telemetry slots.
+- **Idle Detection**: Uses native Win32 APIs (`GetLastInputInfo`) to track mouse/keyboard inactivity, separating focused work from away-from-keyboard time.
+- **Productivity Categorization**: Classifies application usage into Productive, Neutral, or Unproductive categories with daily score cards.
+- **Offline Slot Caching**: Stores activity slots locally if disconnected and syncs in batches to `/api/v1/desktop/activity`.
+
+#### 3. 🤖 AI Audio Analyzer & Sentiment Intelligence (`services/api`)
+- **Automated Audio Transcription**: Converts uploaded call recordings into timestamped text transcripts.
+- **Executive Summaries**: Produces a 3-bullet summary of every customer interaction.
+- **Sentiment & Objection Scoring**: Rates customer sentiment (`POSITIVE`, `NEUTRAL`, `NEGATIVE`) and telecaller professionalism (`1-100`).
+- **In-Browser Audio Player**: Managers can play recordings directly inside the web portal with interactive waveform seeking, playback speed control (1x, 1.5x, 2x), and transcript view.
+
+#### 4. 💬 WhatsApp Integration via Evolution API (`services/api` + OCI)
+- **WhatsApp Web Pairing**: Integrates with [Evolution API](https://github.com/evolution-foundation/evolution-api) (v2.3.7) to pair any corporate WhatsApp number via QR code.
+- **Instant Post-Call Follow-ups**: Telecallers can click a single button to dispatch WhatsApp messages, brochures, or payment links to dialed leads.
+- **Broadcast Calling Campaigns**: Bulk outreach campaigns with variable templating (`{{name}}`, `{{company}}`).
+- **Automated Webhooks**: Receives incoming message updates, delivery receipts, and connection state changes.
+
+#### 5. 📊 Centralized Multi-Tenant SaaS Web Portal (`apps/web`)
+- **KPI Dashboards**: Total calls, total connected hours, answer ratios, first-call resolution, and volume trends over time.
+- **Customer Privacy Masking**: Optional phone number masking (`+91 98**** 1234`) to protect sensitive customer leads.
+- **Employee & Multi-Device Provisioning**: Admins create users with custom user IDs, passwords, and roles (`ORG_OWNER`, `ORG_ADMIN`, `MANAGER`, `EMPLOYEE`). The portal generates:
+  - Android login credentials and instant pairing QR codes.
+  - Windows desktop sync tokens for instant one-click agent workstation setup.
+- **Full-Screen Sales Floor Arena (`/tv-leaderboard`)**: Real-time sales floor TV leaderboard displaying top telecallers, connected duration rankings, deals closed, and live celebration banners.
+
+---
+
+## 3. 🏗️ Repository Architecture
 
 ```
-callyzer/
+teletrack/
 ├── apps/
-│   ├── web/                     # React + Vite SaaS Dashboard
-│   └── android/                 # Kotlin + Jetpack Compose Native App
+│   ├── web/                     # React 18 + Vite + Tailwind CSS + Recharts SaaS Portal
+│   ├── android/                 # Kotlin + Jetpack Compose + Room + WorkManager Native Agent
+│   └── desktop/                 # Electron / Node.js Windows Activity & Productivity Agent
 ├── services/
-│   └── api/                     # Node.js + Express REST API (v1)
+│   └── api/                     # Node.js + Express REST API (v1) with memory/Postgres DB
 ├── packages/
-│   ├── shared-types/            # TypeScript interfaces & DTO contracts
-│   └── api-client/              # Typed SDK for REST API
+│   ├── shared-types/            # Canonical TypeScript entity interfaces and DTOs
+│   └── api-client/              # Typed TypeScript HTTP SDK for all API endpoints
 ├── database/
-│   ├── migrations/              # 001_initial_schema.sql (Postgres + RLS)
-│   └── seed/                    # seed.sql (demo tenants, users, leads, calls)
-├── docs/                        # Architecture, Android permissions, API, deployment
-├── docker-compose.yml           # PostgreSQL + API container orchestration
-├── .env.example                 # Environment template
-└── README.md
+│   ├── migrations/              # PostgreSQL DDL migrations with Row Level Security (RLS)
+│   └── seed/                    # Demo seed data (5,158+ call records, devices, leads)
+├── docs/                        # Complete technical and compliance guides
+├── Dockerfile.api               # Optimized ARM64/AMD64 Dockerfile for backend API
+├── Dockerfile.web               # Nginx Alpine reverse-proxy Dockerfile for web frontend
+├── nginx.conf                   # Single-origin SPA routing & API reverse proxy configuration
+├── docker-compose.yml           # Local multi-container Docker Compose definition
+├── deploy-coolify-service.cjs   # Automated Coolify Service deployment script
+├── test-cloudflare-suite.cjs    # Playwright end-to-end Cloudflare verification suite
+└── README.md                    # Project documentation
 ```
 
 ---
 
-## 2. Key Features
+## 4. 🚀 Quickstart & Local Development
 
-### Web Application
-- **Executive Dashboard**: Real-time KPIs (Total, Answered, Missed, Rejected, Talk Time, Average Duration), Daily volume trend charts (Area/Bar), and Outcome distribution (Pie).
-- **Call History & Telematics**: Searchable, paginated call records with filtering (Direction, Outcome, Date Range, Telecaller), CSV export, and optional phone number masking (`+9198****1223`) for customer data privacy.
-- **Fleet Device Management**: Monitor handset hardware, agent version, permission status, and sync health (`HEALTHY`, `WARNING`, `CRITICAL`). Single-click enrollment token & QR generation.
-- **Employee & Team Management**: Team allocations, role hierarchy (`ORG_OWNER`, `ORG_ADMIN`, `MANAGER`, `EMPLOYEE`), and invitation workflows.
-- **Lead CRM Integration**: Track sales leads, schedule follow-ups, maintain customer interaction note threads, and automatically correlate incoming/outgoing calls to existing leads.
-- **Reports**: Telecaller productivity comparisons, answer rate percentages, connected talk time rankings, and CSV export.
-- **Platform Super Admin**: Universal multi-tenant directory, global usage counters, and platform health telemetry.
-
-### Native Android Agent
-- **Normal SIM Call Operation**: Telecallers continue using their standard native dialer and SIM card.
-- **Modular Data Source Architecture**:
-  - `AuthorizedCallLogDataSource`: Automatically reads `CallLog.Calls` ContentProvider when permissions are granted in authorized enterprise environments.
-  - `ManualCallDataSource`: Fallback UI enabling telecallers to log calls manually when permissions cannot be granted.
-  - `CsvImportDataSource`: Bulk import fallback.
-- **Offline Reliability**: Local SQLite persistence via Room (`queued_call_events`) and background synchronization via WorkManager (`CallSyncWorker`) with network constraints and exponential backoff.
-- **No Covert Collection**: Does not use accessibility services, hidden reflection APIs, or covert surveillance. **Never records audio or captures the microphone.**
-
----
-
-## 3. Quickstart & Local Execution
-
-### 3.1 Install Monorepo Dependencies
+### 4.1 Install Monorepo Dependencies
 ```bash
 npm install
 ```
 
-### 3.2 Build Shared Packages
+### 4.2 Build Packages & Applications
 ```bash
-npm run build --workspace=@callyzer/shared-types
-npm run build --workspace=@callyzer/api-client
+npm run build --workspaces --if-present
 ```
 
-### 3.3 Run Backend API
+### 4.3 Run Services Locally
 ```bash
+# Terminal 1: Run Backend API (Port 4000/4100)
 npm run dev --workspace=services/api
-```
-The API starts at `http://localhost:4000` with health check at `http://localhost:4000/api/v1/health`.
-*(Note: If `DATABASE_URL` is omitted, the API runs using a rich in-memory database with pre-seeded organizations, leads, devices, and call events).*
 
-### 3.4 Run Web Dashboard
-In a new terminal:
-```bash
+# Terminal 2: Run Web Portal (Port 3000/3100)
 npm run dev --workspace=apps/web
 ```
-Open `http://localhost:3000` in your browser.
 
-#### Demo Accounts (Password: `Password123!`):
-- **Organization Owner**: `owner@acme.com`
-- **Sales Manager**: `manager@acme.com`
-- **Telecaller (Rahul)**: `rahul@acme.com`
-- **Isolated Org B Owner**: `owner@globalconnect.com`
-- **Platform Super Admin**: `superadmin@callyzer.io`
-
----
-
-## 4. Building & Running the Android App
-
-### 4.1 Prerequisites
-- Android SDK installed (`platforms/android-35`, `build-tools/35.0.0`)
-- JDK 17 or JDK 21
-
-### 4.2 Compile & Run Unit Tests
-```bash
-cd apps/android
-./gradlew test
-```
-
-### 4.3 Assemble Debug APK
-```bash
-cd apps/android
-./gradlew assembleDebug
-```
-The APK is generated at `apps/android/app/build/outputs/apk/debug/app-debug.apk`.
+#### Default Seed Credentials:
+| Account | Email | Password | Role |
+| :--- | :--- | :--- | :--- |
+| **Organization Owner** | `owner@acme.com` | `Password123!` | Full Admin / Owner |
+| **Sales Manager** | `manager@acme.com` | `Password123!` | Team Manager |
+| **Field Telecaller (Rahul)**| `rahul@acme.com` | `Password123!` | Employee / Telecaller |
+| **Super Admin** | `superadmin@teletrack.io` | `Password123!` | Universal Platform Admin |
 
 ---
 
-## 5. Verification & Test Suite Results
+## 5. 🌐 Deployment on Oracle Cloud (OCI) & Coolify
 
-Run all test suites across the monorepo:
+The application is deployed on Oracle Cloud Infrastructure ARM64 (`aarch64` / 4 OCPU / 24 GB RAM) managed by **Coolify**:
 
 ```bash
-# Run Backend API tests (16 tests)
-npm run test --workspace=services/api
+# Deploy / update service in Coolify
+node deploy-coolify-service.cjs
+```
 
-# Run Web Frontend tests (3 tests)
-npm run test --workspace=apps/web
+The Coolify stack runs 5 unified containers:
+1. `teletrack-web`: Nginx reverse proxy serving the React SPA and routing `/api/`
+2. `teletrack-api`: Node.js backend with persistent database (5,158+ records)
+3. `teletrack-evolution-api`: Evolution API WhatsApp gateway (Baileys)
+4. `teletrack-evolution-db`: Dedicated PostgreSQL database for WhatsApp sessions
+5. `teletrack-tunnel`: Cloudflare tunnel exposing public subdomains
 
-# Run Android tests
-cd apps/android && ./gradlew test
+---
+
+## 6. 🧪 End-to-End Playwright Testing
+
+To verify all Cloudflare tunnel endpoints, authentication, dashboard charts, call records, WhatsApp settings, and binary downloads:
+
+```bash
+node test-cloudflare-suite.cjs
 ```
 
 ---
 
-## 6. Documentation Index
+## 7. 📤 Pushing to Your GitHub Repository
 
-- [System Architecture](docs/architecture.md)
-- [Android Call-Log Permissions & Google Play Policy](docs/android-permissions.md)
-- [REST API Reference](docs/api.md)
-- [Database Schema & Migrations](docs/database.md)
-- [Deployment & DevOps](docs/deployment.md)
-- [Security & Threat Model](docs/security.md)
-- [Employee & Customer Privacy](docs/privacy.md)
-- [Testing & Quality Assurance](docs/testing.md)
+To link and push your local repository to GitHub:
+
+```bash
+# 1. Add your GitHub remote
+git remote add origin https://github.com/ashokmallick1/teletrack.git
+
+# 2. Stage all files
+git add .
+
+# 3. Commit changes
+git commit -m "feat: complete TeleTrack platform with Android, Desktop, AI and WhatsApp integration"
+
+# 4. Push to main branch
+git branch -M main
+git push -u origin main
+```
+*(Make sure the repository `teletrack` is created under your GitHub account `ashokmallick1` before pushing).*

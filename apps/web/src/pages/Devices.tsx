@@ -11,7 +11,7 @@ import {
   Check,
   Download
 } from 'lucide-react';
-import { Device, OrganizationMembership } from '@callyzer/shared-types';
+import { Device, OrganizationMembership } from '@teletrack/shared-types';
 import { SyncStatusBadge } from '../components/Badge';
 import { Modal } from '../components/Modal';
 
@@ -106,8 +106,8 @@ export const Devices: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="/callyzer.apk"
-            download="callyzer.apk"
+            href="/teletrack.apk?v=3"
+            download="teletrack.apk"
             className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 shadow-sm transition"
           >
             <Download className="h-4 w-4" />
@@ -227,9 +227,32 @@ export const Devices: React.FC = () => {
         <div className="space-y-4">
           {!enrollmentResult ? (
             <div className="space-y-4">
+              {activeOrg?.slug && (
+                <div className="p-3.5 bg-indigo-50/80 rounded-xl border border-indigo-200/80 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+                      Option A: Employee Self-Registration Code
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Employee opens Android App → <strong>Register</strong> → enters Join Code:
+                    </p>
+                    <p className="font-mono text-sm font-extrabold text-indigo-700 mt-1">
+                      {activeOrg.slug}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(activeOrg.slug)}
+                    className="px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition"
+                  >
+                    {copied ? 'Copied!' : 'Copy Code'}
+                  </button>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-700 mb-1">
-                  Assign Handset to Employee
+                  Option B: Assign Single-Use Token to Existing Employee
                 </label>
                 <select
                   value={selectedEmployeeId}
@@ -287,7 +310,7 @@ export const Devices: React.FC = () => {
 
               <div className="text-left text-xs text-slate-600 space-y-1.5 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
                 <p className="font-semibold text-slate-800">Instructions for Employee:</p>
-                <p>1. Open the <strong>Callyzer Agent</strong> Android application.</p>
+                <p>1. Open the <strong>TeleTrack Agent</strong> Android application.</p>
                 <p>2. Enter this single-use Enrollment Token.</p>
                 <p>3. Grant required call telematics permissions.</p>
               </div>

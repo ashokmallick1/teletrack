@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeleTrack Desktop</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Titlebar -->
+  <div class="titlebar">
+    <div class="titlebar-drag">
+      <div class="brand-badge">T</div>
+      <span class="brand-name">TeleTrack Agent</span>
+    </div>
+    <div class="titlebar-controls">
+      <button id="btn-minimize" title="Minimize to Tray">−</button>
+      <button id="btn-close" title="Hide">×</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- View 1: Login / Enroll -->
+    <div id="view-login" class="view hidden">
+      <div class="login-header">
+        <div class="logo-circle">T</div>
+        <h2>Connect TeleTrack Agent</h2>
+        <p>Link this Windows PC to your company's unified productivity analytics</p>
+      </div>
+
+      <form id="form-login">
+        <div id="login-error" class="error-banner hidden"></div>
+
+        <div class="form-group">
+          <label>User ID or Email</label>
+          <input type="text" id="input-email" required placeholder="e.g. rahul01 or you@company.com">
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="input-password" required placeholder="••••••••">
+        </div>
+
+        <div class="form-group">
+          <label>Organization Code</label>
+          <input type="text" id="input-org-code" value="acme-teleservices" placeholder="e.g. acme-teleservices">
+        </div>
+
+        <div class="form-group">
+          <label>API Server URL</label>
+          <input type="text" id="input-api-url" value="https://teletrack-api.bhashaai.in">
+        </div>
+
+        <button type="submit" id="btn-submit-login" class="btn btn-primary">
+          Connect & Start Tracking
+        </button>
+      </form>
+    </div>
+
+    <!-- View 2: Dashboard / Work Session -->
+    <div id="view-dashboard" class="view">
+      <!-- Profile Header -->
+      <div class="profile-card">
+        <div class="profile-info">
+          <h3 id="txt-employee-name">Loading...</h3>
+          <p id="txt-org-name">Organization</p>
+        </div>
+        <div id="status-pill" class="badge badge-working">
+          <span class="status-dot"></span>
+          <span id="txt-status">WORKING</span>
+        </div>
+      </div>
+
+      <!-- Clock In / Out Toggle -->
+      <div class="clock-controls">
+        <button id="btn-clock-toggle" class="btn btn-clock">
+          <span id="btn-clock-icon">⏸</span>
+          <span id="btn-clock-label">Clock Out / Pause</span>
+        </button>
+        <button id="btn-break-toggle" class="btn btn-secondary">
+          <span id="btn-break-label">☕ Take a Break</span>
+        </button>
+      </div>
+
+      <!-- Live Window Telemetry -->
+      <div class="live-card">
+        <div class="card-header">
+          <span class="label-tiny">LIVE FOREGROUND ACTIVITY</span>
+          <span id="live-category-badge" class="badge-cat badge-cat-productive">PRODUCTIVE</span>
+        </div>
+        <div class="live-app-name" id="txt-live-app">Active App: Detecting...</div>
+        <div class="live-window-title" id="txt-live-title">—</div>
+      </div>
+
+      <!-- Today's Productivity Metrics -->
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <span class="metric-val" id="val-work-time">0h 0m</span>
+          <span class="metric-label">Work Time</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-val text-emerald" id="val-productive">0%</span>
+          <span class="metric-label">Productive</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-val text-amber" id="val-idle">0m</span>
+          <span class="metric-label">Idle / Away</span>
+        </div>
+      </div>
+
+      <!-- Tray Hint & Actions -->
+      <div class="footer-actions">
+        <p class="tray-hint">Running in Windows background tray.</p>
+        <button id="btn-logout" class="btn-link">Disconnect Machine</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

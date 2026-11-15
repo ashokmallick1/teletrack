@@ -11,7 +11,7 @@ import {
   CallDirection,
   CallOutcome,
   DataSource
-} from '@callyzer/shared-types';
+} from '@teletrack/shared-types';
 
 export const callEventRouter = Router();
 

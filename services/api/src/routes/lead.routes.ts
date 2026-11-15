@@ -4,7 +4,7 @@ import { parse } from 'csv-parse/sync';
 import { getDatabase } from '../db';
 import { requireUserAuth, requireOrgMember, requireDeviceAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
-import { LeadStatus } from '@callyzer/shared-types';
+import { LeadStatus } from '@teletrack/shared-types';
 
 export const leadRouter = Router();
 

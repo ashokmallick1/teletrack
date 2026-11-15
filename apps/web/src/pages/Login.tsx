@@ -36,7 +36,7 @@ export const Login: React.FC = () => {
         <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white mx-auto shadow-lg shadow-blue-500/30">
           <PhoneCall className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-3xl font-extrabold text-white tracking-tight">Callyzer Cloud</h2>
+        <h2 className="mt-4 text-3xl font-extrabold text-white tracking-tight">TeleTrack Cloud</h2>
         <p className="mt-2 text-sm text-slate-400">
           Enterprise SIM Call Analytics & Telecalling Intelligence
         </p>
@@ -118,7 +118,7 @@ export const Login: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => fillDemoAccount('superadmin@callyzer.io')}
+                onClick={() => fillDemoAccount('superadmin@teletrack.io')}
                 className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium transition text-left"
               >
                 🛡️ Super Admin

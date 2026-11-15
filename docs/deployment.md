@@ -14,8 +14,8 @@
 npm install
 
 # 2. Build packages
-npm run build --workspace=@callyzer/shared-types
-npm run build --workspace=@callyzer/api-client
+npm run build --workspace=@teletrack/shared-types
+npm run build --workspace=@teletrack/api-client
 
 # 3. Start Backend API (Port 4000)
 npm run dev --workspace=services/api

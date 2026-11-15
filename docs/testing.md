@@ -55,8 +55,8 @@ When deploying to real Android hardware, execute the following manual test proto
 1. **Permission Grant**:
    Install APK > Launch app > Tap "Grant Permission" > Verify system dialog appears > Tap "Allow" > Verify status changes to "Automated Call Telemetry Active".
 2. **Make Outgoing Call**:
-   Open normal native phone dialer > Call a test number > Speak for 15 seconds > Hang up > Open Callyzer Agent > Tap "Sync Now" > Confirm call appears in "Recent Activity Stream".
+   Open normal native phone dialer > Call a test number > Speak for 15 seconds > Hang up > Open TeleTrack Agent > Tap "Sync Now" > Confirm call appears in "Recent Activity Stream".
 3. **Verify Dashboard**:
    Open Web Dashboard > Verify event appears in Call History and Dashboard KPIs increment.
 4. **Offline Resilience**:
-   Enable Airplane mode > Make a test call > Open Callyzer Agent > Confirm call is queued with status `PENDING` > Turn off Airplane mode > Confirm background upload succeeds and transitions to `SYNCED`.
+   Enable Airplane mode > Make a test call > Open TeleTrack Agent > Confirm call is queued with status `PENDING` > Turn off Airplane mode > Confirm background upload succeeds and transitions to `SYNCED`.

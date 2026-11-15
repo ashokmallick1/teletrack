@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Send
 } from 'lucide-react';
-import { Lead, LeadStatus, LeadNote, OrganizationMembership } from '@callyzer/shared-types';
+import { Lead, LeadStatus, LeadNote, OrganizationMembership } from '@teletrack/shared-types';
 import { LeadStatusBadge } from '../components/Badge';
 import { Modal } from '../components/Modal';
 
@@ -100,7 +100,7 @@ export const Leads: React.FC = () => {
     try {
       const res = await fetch(`/api/v1/leads/${lead.id}/notes`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('callyzer_token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('teletrack_token')}`,
           'x-organization-id': activeOrg!.id
         }
       });
@@ -133,7 +133,7 @@ export const Leads: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('callyzer_token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('teletrack_token')}`,
           'x-organization-id': activeOrg!.id
         },
         body: JSON.stringify({ csv: csvContent })

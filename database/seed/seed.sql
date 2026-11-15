@@ -1,4 +1,4 @@
--- Seed data for Callyzer Platform
+-- Seed data for TeleTrack Platform
 -- Demonstrates multi-tenancy, role hierarchy, leads, devices, and realistic call analytics
 
 -- 1. Subscription Plans
@@ -13,7 +13,7 @@ ON CONFLICT (code) DO NOTHING;
 -- Hash for 'Password123!' -> $2b$10$wT0l0hXvXq3z9Zk9P3pDguCq2Yk3Qo5xGq2J1F7K9xXq3z9Zk9P3p (or placeholder evaluated by server)
 INSERT INTO profiles (id, email, full_name, is_super_admin, password_hash)
 VALUES
-  ('22222222-2222-2222-2222-222222222200', 'superadmin@callyzer.io', 'Platform Super Admin', TRUE, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
+  ('22222222-2222-2222-2222-222222222200', 'superadmin@teletrack.io', 'Platform Super Admin', TRUE, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
   ('22222222-2222-2222-2222-222222222201', 'owner@acme.com', 'Rajesh Sharma (Owner)', FALSE, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
   ('22222222-2222-2222-2222-222222222202', 'manager@acme.com', 'Priya Patel (Sales Manager)', FALSE, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
   ('22222222-2222-2222-2222-222222222203', 'rahul@acme.com', 'Rahul Verma (Telecaller 1)', FALSE, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),

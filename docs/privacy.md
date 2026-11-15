@@ -2,7 +2,7 @@
 
 ## 1. Ethical Telecalling Monitoring Principles
 
-Callyzer is designed to support legitimate business telecalling operations while safeguarding the privacy of both employees and customers.
+TeleTrack is designed to support legitimate business telecalling operations while safeguarding the privacy of both employees and customers.
 
 ---
 

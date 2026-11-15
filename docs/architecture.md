@@ -1,8 +1,8 @@
-# Callyzer SaaS System Architecture
+# TeleTrack SaaS System Architecture
 
 ## 1. System Overview
 
-Callyzer is an enterprise multi-tenant call analytics and telecalling management SaaS platform. It enables organizations to monitor, analyze, and optimize employee call activities conducted via normal native SIM cards on Android smartphones without altering the user dialer experience.
+TeleTrack is an enterprise multi-tenant call analytics and telecalling management SaaS platform. It enables organizations to monitor, analyze, and optimize employee call activities conducted via normal native SIM cards on Android smartphones without altering the user dialer experience.
 
 ```
        +------------------------------------+

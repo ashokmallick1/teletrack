@@ -22,6 +22,17 @@ const updateOrgSchema = z.object({
 
 orgRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
   const db = getDatabase();
+  if (req.user!.isSuperAdmin) {
+    const allOrgs = await db.getAllOrganizations();
+    res.json(
+      allOrgs.map((o: any) => ({
+        ...o,
+        role: 'SUPER_ADMIN'
+      }))
+    );
+    return;
+  }
+
   const memberships = await db.getUserMemberships(req.user!.id);
   const orgs = [];
 
@@ -42,11 +53,13 @@ orgRouter.post('/', requireUserAuth, validateBody(createOrgSchema), async (req: 
   const { name, slug, timezone } = req.body;
   const db = getDatabase();
 
-  const finalSlug = slug || `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const baseSlug = (slug || name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const existing = await db.getOrganizationBySlug(baseSlug);
+  const finalSlug = existing ? `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}` : baseSlug;
   const org = await db.createOrganization({
     name,
     slug: finalSlug,
-    timezone
+    timezone: timezone || 'Asia/Kolkata'
   });
 
   await db.createMembership({

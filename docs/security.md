@@ -2,7 +2,7 @@
 
 ## 1. Threat Model & Security Principles
 
-The Callyzer platform handles business telephony metadata, employee call statistics, and customer phone numbers. Security is engineered at every layer.
+The TeleTrack platform handles business telephony metadata, employee call statistics, and customer phone numbers. Security is engineered at every layer.
 
 ---
 

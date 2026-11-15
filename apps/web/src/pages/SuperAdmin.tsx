@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   ShieldAlert,
@@ -6,13 +7,14 @@ import {
   Smartphone,
   PhoneCall,
   Users,
-  Activity,
-  Server
+  ArrowRight,
+  Plus
 } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
 
 export const SuperAdmin: React.FC = () => {
-  const { client, user } = useAuth();
+  const { client, user, switchOrganization, activeOrg } = useAuth();
+  const navigate = useNavigate();
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [usage, setUsage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -98,21 +100,29 @@ export const SuperAdmin: React.FC = () => {
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 tracking-wider">
               <tr>
                 <th className="px-6 py-3.5">Organization Name</th>
-                <th className="px-6 py-3.5">Slug</th>
+                <th className="px-6 py-3.5">App Join Code (Slug)</th>
                 <th className="px-6 py-3.5">Timezone</th>
                 <th className="px-6 py-3.5 text-center">Handsets</th>
                 <th className="px-6 py-3.5 text-center">Members</th>
                 <th className="px-6 py-3.5 text-center">Total Calls</th>
                 <th className="px-6 py-3.5">Created At</th>
+                <th className="px-6 py-3.5 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
               {organizations.map(org => (
                 <tr key={org.id} className="hover:bg-slate-50/60 transition">
                   <td className="px-6 py-4 whitespace-nowrap font-semibold text-slate-900">
-                    {org.name}
+                    <div className="flex items-center gap-2">
+                      <span>{org.name}</span>
+                      {activeOrg?.id === org.id && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                          Active View
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-slate-500">
+                  <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-indigo-700 font-semibold">
                     {org.slug}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-600">
@@ -129,6 +139,18 @@ export const SuperAdmin: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-400">
                     {new Date(org.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <button
+                      onClick={async () => {
+                        await switchOrganization(org.id);
+                        navigate('/');
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60 transition"
+                    >
+                      <span>Inspect Tenant</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}

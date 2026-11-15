@@ -10,9 +10,9 @@ COPY services/api ./services/api
 
 # Install dependencies and build
 RUN npm install
-RUN npm run build --workspace=@callyzer/shared-types
-RUN npm run build --workspace=@callyzer/api-client
-RUN npm run build --workspace=@callyzer/api
+RUN npm run build --workspace=@teletrack/shared-types
+RUN npm run build --workspace=@teletrack/api-client
+RUN npm run build --workspace=@teletrack/api
 
 # Production image
 FROM node:24-alpine

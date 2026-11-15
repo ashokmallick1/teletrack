@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "callyzer-android"
+rootProject.name = "teletrack-android"
 include(":app")
