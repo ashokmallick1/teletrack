@@ -26,6 +26,21 @@ export class DesktopTracker {
     this.isRunning = true;
     this.onSampleCallback = onSample;
 
+    const platform = process.platform;
+
+    if (platform === 'win32') {
+      this.startWindowsTracker();
+    } else if (platform === 'darwin') {
+      this.startMacTracker();
+    } else {
+      this.startLinuxTracker();
+    }
+  }
+
+  /**
+   * Windows Native Activity Tracker (Win32 API via PowerShell)
+   */
+  private startWindowsTracker() {
     const psScript = `
 $code = @"
 using System;
@@ -87,9 +102,73 @@ while ($true) {
     Start-Sleep -Seconds 5
 }
 `;
+    this.spawnTrackerProcess('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript]);
+  }
 
+  /**
+   * macOS Native Activity Tracker (AppleScript + ioreg for idle detection)
+   */
+  private startMacTracker() {
+    const shScript = `
+while true; do
+  IDLE_MS=$(ioreg -c IOHIDSystem 2>/dev/null | awk '/HIDIdleTime/ {print int($NF/1000000); exit}')
+  if [ -z "$IDLE_MS" ]; then IDLE_MS=0; fi
+
+  INFO=$(osascript -e '
+    tell application "System Events"
+      try
+        set frontApp to first application process whose frontmost is true
+        set appName to name of frontApp
+        set winTitle to ""
+        try
+          set winTitle to name of front window of frontApp
+        end try
+        return appName & "|||" & winTitle
+      on error
+        return "Unknown|||"
+      end try
+    end tell' 2>/dev/null)
+
+  PROC=$(echo "$INFO" | awk -F'|||' '{print $1}' | tr -d '"\n')
+  TITLE=$(echo "$INFO" | awk -F'|||' '{print $2}' | tr -d '"\n')
+
+  echo "{\\"process\\":\\"$PROC\\",\\"title\\":\\"$TITLE\\",\\"idleMs\\":$IDLE_MS}"
+  sleep 5
+done
+`;
+    this.spawnTrackerProcess('/bin/sh', ['-c', shScript]);
+  }
+
+  /**
+   * Linux Native Activity Tracker (X11 / xprintidle / xdotool)
+   */
+  private startLinuxTracker() {
+    const shScript = `
+while true; do
+  IDLE_MS=0
+  if command -v xprintidle >/dev/null 2>&1; then
+    IDLE_MS=$(xprintidle 2>/dev/null || echo 0)
+  fi
+
+  WIN_ID=$(xdotool getactivewindow 2>/dev/null || echo 0)
+  PROC="unknown"
+  TITLE=""
+
+  if [ "$WIN_ID" != "0" ] && [ -n "$WIN_ID" ]; then
+    PROC=$(xprop -id "$WIN_ID" WM_CLASS 2>/dev/null | awk -F'"' '{print $(NF-1)}' || echo "unknown")
+    TITLE=$(xprop -id "$WIN_ID" _NET_WM_NAME 2>/dev/null | cut -d '"' -f 2 || echo "")
+  fi
+
+  echo "{\\"process\\":\\"$PROC\\",\\"title\\":\\"$TITLE\\",\\"idleMs\\":$IDLE_MS}"
+  sleep 5
+done
+`;
+    this.spawnTrackerProcess('/bin/sh', ['-c', shScript]);
+  }
+
+  private spawnTrackerProcess(command: string, args: string[]) {
     try {
-      this.child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript]);
+      this.child = spawn(command, args);
 
       let buffer = '';
       this.child.stdout?.on('data', data => {
@@ -102,7 +181,7 @@ while ($true) {
           if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
             try {
               const parsed = JSON.parse(trimmed);
-              const isIdle = parsed.idleMs >= this.idleThresholdMs;
+              const isIdle = (parsed.idleMs || 0) >= this.idleThresholdMs;
               const category = isIdle ? 'NEUTRAL' : categorizeActivity(parsed.process, parsed.title);
 
               const sample: ActiveWindowSample = {
@@ -124,13 +203,12 @@ while ($true) {
         }
       });
 
-      this.child.stderr?.on('data', err => {
-        // Log stderr for diagnostics
+      this.child.stderr?.on('data', _err => {
+        // diagnostics
       });
 
       this.child.on('exit', () => {
         if (this.isRunning) {
-          // Auto-restart if closed unexpectedly
           setTimeout(() => {
             if (this.isRunning && this.onSampleCallback) {
               this.start(this.onSampleCallback);

@@ -1,0 +1,15 @@
+[Unit]
+Description=TeleTrack Desktop Workforce Telematics Agent
+After=graphical.target network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.teletrack-desktop
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target

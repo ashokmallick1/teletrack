@@ -34,19 +34,32 @@ export function createApp(): Express {
     app.use(morgan('combined'));
   }
 
-  // Direct APK download route with explicit package-archive MIME type
-  const apkPath = path.resolve(__dirname, '../../../apps/web/public/teletrack.apk');
-  const serveApk = (_req: any, res: any) => {
-    if (fs.existsSync(apkPath)) {
-      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-      res.setHeader('Content-Disposition', 'attachment; filename="teletrack.apk"');
-      res.sendFile(apkPath);
+  // Direct binary downloads helper
+  const publicDir = path.resolve(__dirname, '../../../apps/web/public');
+  const serveBinary = (filename: string, mimeType: string) => (_req: any, res: any) => {
+    const filePath = path.join(publicDir, filename);
+    if (fs.existsSync(filePath)) {
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.sendFile(filePath);
     } else {
-      res.status(404).send('APK file not found');
+      res.status(404).send(`${filename} not found`);
     }
   };
-  app.get('/teletrack.apk', serveApk);
-  app.get('/api/v1/download/apk', serveApk);
+
+  app.get('/teletrack.apk', serveBinary('teletrack.apk', 'application/vnd.android.package-archive'));
+  app.get('/api/v1/download/apk', serveBinary('teletrack.apk', 'application/vnd.android.package-archive'));
+  app.get('/teletrack-desktop.zip', serveBinary('teletrack-desktop.zip', 'application/zip'));
+  app.get('/teletrack-windows.zip', serveBinary('teletrack-windows.zip', 'application/zip'));
+  app.get('/teletrack-mac.zip', serveBinary('teletrack-mac.zip', 'application/zip'));
+  app.get('/teletrack-linux.tar.gz', serveBinary('teletrack-linux.tar.gz', 'application/gzip'));
+  app.get('/api/v1/download/desktop/:os', (req, res) => {
+    const os = (req.params.os || '').toLowerCase();
+    if (os.includes('win')) return serveBinary('teletrack-windows.zip', 'application/zip')(req, res);
+    if (os.includes('mac') || os.includes('darwin')) return serveBinary('teletrack-mac.zip', 'application/zip')(req, res);
+    if (os.includes('linux')) return serveBinary('teletrack-linux.tar.gz', 'application/gzip')(req, res);
+    return serveBinary('teletrack-desktop.zip', 'application/zip')(req, res);
+  });
 
   // Health checks
   const healthHandler = (_req: any, res: any) => {
