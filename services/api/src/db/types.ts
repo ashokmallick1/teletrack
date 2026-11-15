@@ -40,7 +40,13 @@ import {
   CampaignStatus,
   CampaignLeadStatus,
   WhatsAppTemplate,
-  WebhookConfig
+  WebhookConfig,
+  AttendanceRecord,
+  LocationPing,
+  ClientVisit,
+  ClientVisitOutcome,
+  LiveAgentLocation,
+  FieldTrackingSummary
 } from '@teletrack/shared-types';
 
 export interface IDatabase {
@@ -263,4 +269,82 @@ export interface IDatabase {
   getWebhooks(orgId: string): Promise<WebhookConfig[]>;
   createWebhook(orgId: string, data: { url: string; events: string[]; secret?: string }): Promise<WebhookConfig>;
   deleteWebhook(orgId: string, webhookId: string): Promise<boolean>;
+
+  // Field Tracking & TrackHR Attendance
+  recordAttendanceCheckIn(data: {
+    organizationId: string;
+    employeeId: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    batteryLevel?: number;
+    isMock?: boolean;
+    remarks?: string;
+  }): Promise<AttendanceRecord>;
+  recordAttendanceCheckOut(data: {
+    organizationId: string;
+    employeeId: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    batteryLevel?: number;
+    isMock?: boolean;
+    remarks?: string;
+  }): Promise<AttendanceRecord>;
+  getAttendanceHistory(
+    orgId: string,
+    filters?: { employeeId?: string; startDate?: string; endDate?: string }
+  ): Promise<AttendanceRecord[]>;
+  recordLocationPings(
+    orgId: string,
+    employeeId: string,
+    pings: Array<{
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      speed?: number;
+      heading?: number;
+      altitude?: number;
+      batteryLevel?: number;
+      isCharging?: boolean;
+      isMockLocation?: boolean;
+      activityType?: 'STILL' | 'WALKING' | 'IN_VEHICLE' | 'UNKNOWN';
+      timestamp?: string;
+      address?: string;
+    }>
+  ): Promise<{ inserted: number }>;
+  recordClientVisit(data: {
+    organizationId: string;
+    employeeId: string;
+    clientName: string;
+    phoneNumber?: string;
+    companyName?: string;
+    visitTime?: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    outcome: ClientVisitOutcome;
+    notes?: string;
+    photoUrl?: string;
+    durationMinutes?: number;
+  }): Promise<ClientVisit>;
+  getClientVisits(
+    orgId: string,
+    filters?: { employeeId?: string; date?: string }
+  ): Promise<ClientVisit[]>;
+  getLiveAgentLocations(orgId: string): Promise<LiveAgentLocation[]>;
+  getFieldTrackingSummary(orgId: string): Promise<FieldTrackingSummary>;
+  getAgentRoute(
+    orgId: string,
+    employeeId: string,
+    dateStr?: string
+  ): Promise<{
+    employeeId: string;
+    employeeName: string;
+    date: string;
+    totalDistanceKm: number;
+    pings: LocationPing[];
+    visits: ClientVisit[];
+    attendance?: AttendanceRecord;
+  }>;
 }

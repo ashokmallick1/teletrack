@@ -12,7 +12,9 @@ import {
   ShieldAlert,
   ChevronRight,
   PhoneForwarded,
-  Trophy
+  Trophy,
+  MapPin,
+  Download
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,12 +25,14 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { label: 'Field & TrackHR', path: '/tracking', icon: MapPin },
     { label: 'Power Dialer', path: '/dialer', icon: PhoneForwarded },
     { label: 'Call History', path: '/calls', icon: PhoneCall },
     { label: 'Productivity & Desktop', path: '/productivity', icon: Monitor },
     { label: 'TV Leaderboard', path: '/tv-leaderboard', icon: Trophy },
     { label: 'Employees', path: '/employees', icon: Users },
     { label: 'Devices', path: '/devices', icon: Smartphone },
+    { label: 'Download Apps', path: '/downloads', icon: Download },
     { label: 'Leads & CRM', path: '/leads', icon: UserCheck },
     { label: 'Analytics & Reports', path: '/reports', icon: BarChart3 },
     ...(isOrgAdmin ? [{ label: 'Settings', path: '/settings', icon: Settings }] : []),

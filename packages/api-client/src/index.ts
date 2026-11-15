@@ -34,7 +34,16 @@ import {
   WebhookConfig,
   EvolutionInstanceConfig,
   SendEvolutionMessageRequest,
-  EvolutionMessageResponse
+  EvolutionMessageResponse,
+  AttendanceRecord,
+  LocationPing,
+  ClientVisit,
+  LiveAgentLocation,
+  FieldTrackingSummary,
+  CheckInRequest,
+  CheckOutRequest,
+  IngestLocationPingsRequest,
+  CreateClientVisitRequest
 } from '@teletrack/shared-types';
 
 export interface ApiClientOptions {
@@ -483,6 +492,72 @@ export class TeleTrackApiClient {
       method: 'POST',
       body: JSON.stringify(data)
     });
+  }
+
+  // Field Tracking, Attendance & TrackHR
+  async getLiveTracking(): Promise<{ success: boolean; data: { summary: FieldTrackingSummary; agents: LiveAgentLocation[] } }> {
+    return this.request('/api/v1/tracking/live');
+  }
+
+  async getTrackingSummary(): Promise<{ success: boolean; data: FieldTrackingSummary }> {
+    return this.request('/api/v1/tracking/summary');
+  }
+
+  async checkInAttendance(data: CheckInRequest): Promise<{ success: boolean; message: string; data: AttendanceRecord }> {
+    return this.request('/api/v1/tracking/attendance/check-in', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async checkOutAttendance(data: CheckOutRequest): Promise<{ success: boolean; message: string; data: AttendanceRecord }> {
+    return this.request('/api/v1/tracking/attendance/check-out', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getAttendanceHistory(filters?: { employeeId?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: AttendanceRecord[] }> {
+    const params = new URLSearchParams();
+    if (filters?.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/api/v1/tracking/attendance/history${query}`);
+  }
+
+  async sendLocationPing(data: any): Promise<{ success: boolean; data: any }> {
+    return this.request('/api/v1/tracking/location/ping', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async sendLocationPings(pings: IngestLocationPingsRequest): Promise<{ success: boolean; data: { inserted: number } }> {
+    return this.request('/api/v1/tracking/location/pings', {
+      method: 'POST',
+      body: JSON.stringify(pings)
+    });
+  }
+
+  async getAgentRoute(employeeId: string, date?: string): Promise<{ success: boolean; data: { employeeId: string; employeeName: string; date: string; totalDistanceKm: number; pings: LocationPing[]; visits: ClientVisit[]; attendance?: AttendanceRecord } }> {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.request(`/api/v1/tracking/route/${employeeId}${query}`);
+  }
+
+  async logClientVisit(data: CreateClientVisitRequest): Promise<{ success: boolean; message: string; data: ClientVisit }> {
+    return this.request('/api/v1/tracking/visits', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getClientVisits(filters?: { employeeId?: string; date?: string }): Promise<{ success: boolean; data: ClientVisit[] }> {
+    const params = new URLSearchParams();
+    if (filters?.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters?.date) params.append('date', filters.date);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/api/v1/tracking/visits${query}`);
   }
 }
 

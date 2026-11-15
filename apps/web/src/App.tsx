@@ -15,6 +15,8 @@ import { Settings } from './pages/Settings';
 import { SuperAdmin } from './pages/SuperAdmin';
 import { PowerDialer } from './pages/PowerDialer';
 import { TvLeaderboard } from './pages/TvLeaderboard';
+import { FieldTracking } from './pages/FieldTracking';
+import { Downloads } from './pages/Downloads';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
@@ -66,11 +68,14 @@ export const App: React.FC = () => {
             <Route index element={<Dashboard />} />
             <Route path="dialer" element={<PowerDialer />} />
             <Route path="calls" element={<CallHistory />} />
+            <Route path="tracking" element={<FieldTracking />} />
+            <Route path="productivity" element={<Productivity />} />
+            <Route path="tv-leaderboard" element={<TvLeaderboard />} />
             <Route path="employees" element={<Employees />} />
             <Route path="devices" element={<Devices />} />
+            <Route path="downloads" element={<Downloads />} />
             <Route path="leads" element={<Leads />} />
             <Route path="reports" element={<Reports />} />
-            <Route path="productivity" element={<Productivity />} />
             <Route path="settings" element={<Settings />} />
             <Route path="super-admin" element={<SuperAdmin />} />
           </Route>

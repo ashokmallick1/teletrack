@@ -44,7 +44,14 @@ import {
   CampaignStatus,
   CampaignLeadStatus,
   WhatsAppTemplate,
-  WebhookConfig
+  WebhookConfig,
+  AttendanceRecord,
+  AttendanceStatus,
+  LocationPing,
+  ClientVisit,
+  ClientVisitOutcome,
+  LiveAgentLocation,
+  FieldTrackingSummary
 } from '@teletrack/shared-types';
 import { IDatabase } from './types';
 
@@ -71,6 +78,9 @@ export class MemoryDatabase implements IDatabase {
   public callingCampaigns: Map<string, CallingCampaign> = new Map();
   public whatsAppTemplates: Map<string, WhatsAppTemplate> = new Map();
   public webhooks: Map<string, WebhookConfig> = new Map();
+  public attendances: Map<string, AttendanceRecord> = new Map();
+  public locationPings: LocationPing[] = [];
+  public clientVisits: Map<string, ClientVisit> = new Map();
 
   private persistPath: string = path.resolve(process.cwd(), 'data/database.json');
 
@@ -105,7 +115,10 @@ export class MemoryDatabase implements IDatabase {
         desktopClockEvents: this.desktopClockEvents,
         callingCampaigns: Array.from(this.callingCampaigns.entries()),
         whatsAppTemplates: Array.from(this.whatsAppTemplates.entries()),
-        webhooks: Array.from(this.webhooks.entries())
+        webhooks: Array.from(this.webhooks.entries()),
+        attendances: Array.from(this.attendances.entries()),
+        locationPings: this.locationPings,
+        clientVisits: Array.from(this.clientVisits.entries())
       };
       fs.mkdirSync(path.dirname(this.persistPath), { recursive: true });
       fs.writeFileSync(this.persistPath, JSON.stringify(data, null, 2), 'utf-8');
@@ -141,6 +154,9 @@ export class MemoryDatabase implements IDatabase {
         if (data.callingCampaigns) this.callingCampaigns = new Map(data.callingCampaigns);
         if (data.whatsAppTemplates) this.whatsAppTemplates = new Map(data.whatsAppTemplates);
         if (data.webhooks) this.webhooks = new Map(data.webhooks);
+        if (data.attendances) this.attendances = new Map(data.attendances);
+        if (data.locationPings) this.locationPings = data.locationPings;
+        if (data.clientVisits) this.clientVisits = new Map(data.clientVisits);
 
         // Ensure all loaded profiles have a clean username
         for (const [id, p] of this.profiles.entries()) {
@@ -2686,6 +2702,459 @@ export class MemoryDatabase implements IDatabase {
     return true;
   }
 
+  // Haversine formula distance calculation in kilometers
+  private calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round((R * c) * 100) / 100;
+  }
+
+  async recordAttendanceCheckIn(data: {
+    organizationId: string;
+    employeeId: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    batteryLevel?: number;
+    isMock?: boolean;
+    remarks?: string;
+  }): Promise<AttendanceRecord> {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const existing = Array.from(this.attendances.values()).find(
+      a => a.organizationId === data.organizationId &&
+           a.employeeId === data.employeeId &&
+           a.checkInTime.startsWith(todayStr)
+    );
+
+    const mem = this.memberships.get(data.employeeId);
+    const profile = mem ? this.profiles.get(mem.userId) : null;
+    const employeeName = profile?.fullName || 'Field Agent';
+
+    if (existing && existing.status === 'CHECKED_IN') {
+      return existing;
+    }
+
+    const id = existing ? existing.id : crypto.randomUUID();
+    const record: AttendanceRecord = {
+      id,
+      organizationId: data.organizationId,
+      employeeId: data.employeeId,
+      employeeName,
+      checkInTime: new Date().toISOString(),
+      checkInLat: data.latitude,
+      checkInLng: data.longitude,
+      checkInAddress: data.address || 'Field Territory Start Point',
+      checkInBattery: data.batteryLevel ?? 95,
+      status: 'CHECKED_IN',
+      totalDistanceKm: existing?.totalDistanceKm || 0,
+      totalDurationMinutes: 0,
+      isMockDetected: data.isMock || false,
+      remarks: data.remarks,
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.attendances.set(id, record);
+
+    // Initial breadcrumb ping
+    this.locationPings.push({
+      id: crypto.randomUUID(),
+      organizationId: data.organizationId,
+      employeeId: data.employeeId,
+      employeeName,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      accuracy: 5,
+      speed: 0,
+      heading: 0,
+      batteryLevel: data.batteryLevel ?? 95,
+      isMockLocation: data.isMock || false,
+      activityType: 'STILL',
+      timestamp: record.checkInTime,
+      address: record.checkInAddress
+    });
+
+    this.saveToDisk();
+    return record;
+  }
+
+  async recordAttendanceCheckOut(data: {
+    organizationId: string;
+    employeeId: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    batteryLevel?: number;
+    isMock?: boolean;
+    remarks?: string;
+  }): Promise<AttendanceRecord> {
+    const todayStr = new Date().toISOString().split('T')[0];
+    let record = Array.from(this.attendances.values()).find(
+      a => a.organizationId === data.organizationId &&
+           a.employeeId === data.employeeId &&
+           a.checkInTime.startsWith(todayStr)
+    );
+
+    const mem = this.memberships.get(data.employeeId);
+    const profile = mem ? this.profiles.get(mem.userId) : null;
+    const employeeName = profile?.fullName || 'Field Agent';
+
+    const checkOutTime = new Date().toISOString();
+    let totalMinutes = 0;
+    if (record) {
+      const checkInMs = new Date(record.checkInTime).getTime();
+      const checkOutMs = new Date(checkOutTime).getTime();
+      totalMinutes = Math.max(1, Math.round((checkOutMs - checkInMs) / 60000));
+    }
+
+    // Calculate total distance traveled today
+    const employeePings = this.locationPings
+      .filter(p => p.organizationId === data.organizationId && p.employeeId === data.employeeId && p.timestamp.startsWith(todayStr))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    let distanceKm = 0;
+    for (let i = 1; i < employeePings.length; i++) {
+      distanceKm += this.calculateDistanceKm(
+        employeePings[i - 1].latitude,
+        employeePings[i - 1].longitude,
+        employeePings[i].latitude,
+        employeePings[i].longitude
+      );
+    }
+    distanceKm = Math.round(distanceKm * 10) / 10;
+
+    const id = record ? record.id : crypto.randomUUID();
+    record = {
+      id,
+      organizationId: data.organizationId,
+      employeeId: data.employeeId,
+      employeeName,
+      checkInTime: record ? record.checkInTime : new Date(Date.now() - 8 * 3600000).toISOString(),
+      checkInLat: record ? record.checkInLat : data.latitude,
+      checkInLng: record ? record.checkInLng : data.longitude,
+      checkInAddress: record ? record.checkInAddress : 'Field Office / Client Territory',
+      checkInBattery: record ? record.checkInBattery : 95,
+      checkOutTime,
+      checkOutLat: data.latitude,
+      checkOutLng: data.longitude,
+      checkOutAddress: data.address || 'Field Shift End Point',
+      checkOutBattery: data.batteryLevel ?? 25,
+      status: 'CHECKED_OUT',
+      totalDurationMinutes: totalMinutes || 480,
+      totalDistanceKm: Math.max(distanceKm, record?.totalDistanceKm || 0),
+      isMockDetected: data.isMock || record?.isMockDetected || false,
+      remarks: data.remarks || record?.remarks,
+      createdAt: record?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.attendances.set(id, record);
+
+    // End ping
+    this.locationPings.push({
+      id: crypto.randomUUID(),
+      organizationId: data.organizationId,
+      employeeId: data.employeeId,
+      employeeName,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      accuracy: 5,
+      speed: 0,
+      heading: 0,
+      batteryLevel: data.batteryLevel ?? 25,
+      isMockLocation: data.isMock || false,
+      activityType: 'STILL',
+      timestamp: checkOutTime,
+      address: record.checkOutAddress
+    });
+
+    this.saveToDisk();
+    return record;
+  }
+
+  async getAttendanceHistory(
+    orgId: string,
+    filters?: { employeeId?: string; startDate?: string; endDate?: string }
+  ): Promise<AttendanceRecord[]> {
+    let list = Array.from(this.attendances.values()).filter(a => a.organizationId === orgId);
+    if (filters?.employeeId) {
+      list = list.filter(a => a.employeeId === filters.employeeId);
+    }
+    if (filters?.startDate) {
+      list = list.filter(a => a.checkInTime >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+      list = list.filter(a => a.checkInTime <= filters.endDate!);
+    }
+    list.forEach(a => {
+      if (!a.employeeName) {
+        const mem = this.memberships.get(a.employeeId);
+        const prof = mem ? this.profiles.get(mem.userId) : null;
+        a.employeeName = prof?.fullName || 'Field Agent';
+      }
+    });
+    return list.sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime());
+  }
+
+  async recordLocationPings(
+    orgId: string,
+    employeeId: string,
+    pings: Array<{
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      speed?: number;
+      heading?: number;
+      altitude?: number;
+      batteryLevel?: number;
+      isCharging?: boolean;
+      isMockLocation?: boolean;
+      activityType?: 'STILL' | 'WALKING' | 'IN_VEHICLE' | 'UNKNOWN';
+      timestamp?: string;
+      address?: string;
+    }>
+  ): Promise<{ inserted: number }> {
+    const mem = this.memberships.get(employeeId);
+    const prof = mem ? this.profiles.get(mem.userId) : null;
+    const employeeName = prof?.fullName || 'Field Agent';
+
+    let inserted = 0;
+    for (const p of pings) {
+      const ping: LocationPing = {
+        id: crypto.randomUUID(),
+        organizationId: orgId,
+        employeeId,
+        employeeName,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        accuracy: p.accuracy ?? 5,
+        speed: p.speed ?? 0,
+        heading: p.heading ?? 0,
+        altitude: p.altitude ?? 0,
+        batteryLevel: p.batteryLevel ?? 80,
+        isCharging: p.isCharging ?? false,
+        isMockLocation: p.isMockLocation ?? false,
+        activityType: p.activityType ?? (p.speed && p.speed > 15 ? 'IN_VEHICLE' : p.speed && p.speed > 2 ? 'WALKING' : 'STILL'),
+        timestamp: p.timestamp || new Date().toISOString(),
+        address: p.address
+      };
+      this.locationPings.push(ping);
+      inserted++;
+    }
+
+    this.saveToDisk();
+    return { inserted };
+  }
+
+  async recordClientVisit(data: {
+    organizationId: string;
+    employeeId: string;
+    clientName: string;
+    phoneNumber?: string;
+    companyName?: string;
+    visitTime?: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    outcome: ClientVisitOutcome;
+    notes?: string;
+    photoUrl?: string;
+    durationMinutes?: number;
+  }): Promise<ClientVisit> {
+    const mem = this.memberships.get(data.employeeId);
+    const prof = mem ? this.profiles.get(mem.userId) : null;
+    const employeeName = prof?.fullName || 'Field Agent';
+
+    const id = crypto.randomUUID();
+    const visit: ClientVisit = {
+      id,
+      organizationId: data.organizationId,
+      employeeId: data.employeeId,
+      employeeName,
+      clientName: data.clientName,
+      phoneNumber: data.phoneNumber,
+      companyName: data.companyName,
+      visitTime: data.visitTime || new Date().toISOString(),
+      latitude: data.latitude,
+      longitude: data.longitude,
+      address: data.address || 'Client Office Location',
+      outcome: data.outcome,
+      notes: data.notes,
+      photoUrl: data.photoUrl,
+      durationMinutes: data.durationMinutes || 30,
+      createdAt: new Date().toISOString()
+    };
+    this.clientVisits.set(id, visit);
+    this.saveToDisk();
+    return visit;
+  }
+
+  async getClientVisits(
+    orgId: string,
+    filters?: { employeeId?: string; date?: string }
+  ): Promise<ClientVisit[]> {
+    let list = Array.from(this.clientVisits.values()).filter(v => v.organizationId === orgId);
+    if (filters?.employeeId) {
+      list = list.filter(v => v.employeeId === filters.employeeId);
+    }
+    if (filters?.date) {
+      list = list.filter(v => v.visitTime.startsWith(filters.date!));
+    }
+    list.forEach(v => {
+      if (!v.employeeName) {
+        const mem = this.memberships.get(v.employeeId);
+        const prof = mem ? this.profiles.get(mem.userId) : null;
+        v.employeeName = prof?.fullName || 'Field Agent';
+      }
+    });
+    return list.sort((a, b) => new Date(b.visitTime).getTime() - new Date(a.visitTime).getTime());
+  }
+
+  async getLiveAgentLocations(orgId: string): Promise<LiveAgentLocation[]> {
+    const members = Array.from(this.memberships.values()).filter(m => m.organizationId === orgId && m.isActive);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const result: LiveAgentLocation[] = [];
+
+    for (const mem of members) {
+      const prof = this.profiles.get(mem.userId);
+      const team = mem.teamId ? this.teams.get(mem.teamId) : null;
+      const employeeName = prof?.fullName || 'Field Agent';
+
+      // Find attendance today
+      const todayAttendance = Array.from(this.attendances.values()).find(
+        a => a.organizationId === orgId && a.employeeId === mem.id && a.checkInTime.startsWith(todayStr)
+      );
+
+      // Find today's pings for this employee
+      const pings = this.locationPings
+        .filter(p => p.organizationId === orgId && p.employeeId === mem.id && p.timestamp.startsWith(todayStr))
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      const lastPing = pings.length > 0 ? pings[pings.length - 1] : undefined;
+
+      // Calculate distance today
+      let todayDistanceKm = 0;
+      for (let i = 1; i < pings.length; i++) {
+        todayDistanceKm += this.calculateDistanceKm(
+          pings[i - 1].latitude,
+          pings[i - 1].longitude,
+          pings[i].latitude,
+          pings[i].longitude
+        );
+      }
+      if (todayAttendance?.totalDistanceKm && todayAttendance.totalDistanceKm > todayDistanceKm) {
+        todayDistanceKm = todayAttendance.totalDistanceKm;
+      }
+      todayDistanceKm = Math.round(todayDistanceKm * 10) / 10;
+
+      // Count visits today
+      const todayVisits = Array.from(this.clientVisits.values()).filter(
+        v => v.organizationId === orgId && v.employeeId === mem.id && v.visitTime.startsWith(todayStr)
+      );
+
+      const status: AttendanceStatus = todayAttendance?.status || 'CHECKED_OUT';
+      const isOnline = status === 'CHECKED_IN';
+
+      result.push({
+        employeeId: mem.id,
+        employeeName,
+        employeeCode: mem.employeeCode,
+        avatarUrl: prof?.avatarUrl,
+        teamName: team?.name || 'Field Sales',
+        attendanceStatus: status,
+        checkInTime: todayAttendance?.checkInTime,
+        lastPing,
+        todayDistanceKm,
+        todayVisitsCount: todayVisits.length,
+        isOnline,
+        currentSpeedKmH: lastPing?.speed || 0,
+        batteryLevel: lastPing?.batteryLevel || todayAttendance?.checkInBattery || 85
+      });
+    }
+
+    return result;
+  }
+
+  async getFieldTrackingSummary(orgId: string): Promise<FieldTrackingSummary> {
+    const agents = await this.getLiveAgentLocations(orgId);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const totalVisits = Array.from(this.clientVisits.values()).filter(
+      v => v.organizationId === orgId && v.visitTime.startsWith(todayStr)
+    ).length;
+
+    const totalDistance = Math.round(agents.reduce((sum, a) => sum + a.todayDistanceKm, 0) * 10) / 10;
+    const activeOnDuty = agents.filter(a => a.attendanceStatus === 'CHECKED_IN').length;
+
+    return {
+      totalFieldAgents: agents.length,
+      activeOnDuty,
+      totalDistanceTraveledKm: totalDistance,
+      totalClientVisits: totalVisits,
+      agents
+    };
+  }
+
+  async getAgentRoute(
+    orgId: string,
+    employeeId: string,
+    dateStr?: string
+  ): Promise<{
+    employeeId: string;
+    employeeName: string;
+    date: string;
+    totalDistanceKm: number;
+    pings: LocationPing[];
+    visits: ClientVisit[];
+    attendance?: AttendanceRecord;
+  }> {
+    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    const mem = this.memberships.get(employeeId);
+    const prof = mem ? this.profiles.get(mem.userId) : null;
+    const employeeName = prof?.fullName || 'Field Agent';
+
+    const pings = this.locationPings
+      .filter(p => p.organizationId === orgId && p.employeeId === employeeId && p.timestamp.startsWith(targetDate))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    let totalDistanceKm = 0;
+    for (let i = 1; i < pings.length; i++) {
+      totalDistanceKm += this.calculateDistanceKm(
+        pings[i - 1].latitude,
+        pings[i - 1].longitude,
+        pings[i].latitude,
+        pings[i].longitude
+      );
+    }
+
+    const attendance = Array.from(this.attendances.values()).find(
+      a => a.organizationId === orgId && a.employeeId === employeeId && a.checkInTime.startsWith(targetDate)
+    );
+
+    if (attendance?.totalDistanceKm && attendance.totalDistanceKm > totalDistanceKm) {
+      totalDistanceKm = attendance.totalDistanceKm;
+    }
+    totalDistanceKm = Math.round(totalDistanceKm * 10) / 10;
+
+    const visits = Array.from(this.clientVisits.values()).filter(
+      v => v.organizationId === orgId && v.employeeId === employeeId && v.visitTime.startsWith(targetDate)
+    ).sort((a, b) => new Date(a.visitTime).getTime() - new Date(b.visitTime).getTime());
+
+    return {
+      employeeId,
+      employeeName,
+      date: targetDate,
+      totalDistanceKm,
+      pings,
+      visits,
+      attendance
+    };
+  }
+
   public ensurePillarDataSeeded() {
     // 1. WhatsApp Templates
     if (this.whatsAppTemplates.size === 0) {
@@ -2856,6 +3325,207 @@ export class MemoryDatabase implements IDatabase {
         createdAt: new Date().toISOString()
       };
       this.webhooks.set(zapierWebhook.id, zapierWebhook);
+    }
+
+    // 4. TrackHR Field Tracking, Attendance & Visits
+    if (this.attendances.size === 0) {
+      const defaultOrgId = '33333333-3333-3333-3333-333333333301';
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // 4A. Rahul Verma (Active Field Sales Executive)
+      const rahulEmpId = '66666666-6666-6666-6666-666666666603';
+      const rahulAttId = 'att-rahul-today';
+      const rahulAtt: AttendanceRecord = {
+        id: rahulAttId,
+        organizationId: defaultOrgId,
+        employeeId: rahulEmpId,
+        employeeName: 'Rahul Verma',
+        checkInTime: `${todayStr}T09:15:00.000Z`,
+        checkInLat: 12.9344,
+        checkInLng: 77.6190,
+        checkInAddress: 'Koramangala 4th Block, Bengaluru',
+        checkInBattery: 95,
+        status: 'CHECKED_IN',
+        totalDurationMinutes: 380,
+        totalDistanceKm: 22.4,
+        isMockDetected: false,
+        remarks: 'Field client visits in South Bengaluru sector',
+        createdAt: `${todayStr}T09:15:00.000Z`,
+        updatedAt: new Date().toISOString()
+      };
+      this.attendances.set(rahulAttId, rahulAtt);
+
+      const rahulPings: LocationPing[] = [
+        { id: 'ping-r-1', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9344, longitude: 77.6190, accuracy: 4, speed: 0, heading: 0, batteryLevel: 95, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T09:15:00.000Z`, address: 'Koramangala 4th Block' },
+        { id: 'ping-r-2', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9482, longitude: 77.6251, accuracy: 5, speed: 34, heading: 45, batteryLevel: 93, isMockLocation: false, activityType: 'IN_VEHICLE', timestamp: `${todayStr}T09:40:00.000Z`, address: 'Sony World Signal, Koramangala' },
+        { id: 'ping-r-3', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9610, longitude: 77.6387, accuracy: 6, speed: 42, heading: 60, batteryLevel: 91, isMockLocation: false, activityType: 'IN_VEHICLE', timestamp: `${todayStr}T10:00:00.000Z`, address: 'Domlur Intermediate Ring Rd' },
+        { id: 'ping-r-4', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9784, longitude: 77.6408, accuracy: 3, speed: 0, heading: 12, batteryLevel: 88, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T10:25:00.000Z`, address: '100ft Road, Indiranagar' },
+        { id: 'ping-r-5', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9754, longitude: 77.6066, accuracy: 5, speed: 28, heading: 270, batteryLevel: 82, isMockLocation: false, activityType: 'IN_VEHICLE', timestamp: `${todayStr}T12:00:00.000Z`, address: 'MG Road Metro Boulevard' },
+        { id: 'ping-r-6', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9745, longitude: 77.6015, accuracy: 4, speed: 0, heading: 180, batteryLevel: 79, isMockLocation: false, activityType: 'WALKING', timestamp: `${todayStr}T13:10:00.000Z`, address: 'Church Street Commercial Complex' },
+        { id: 'ping-r-7', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9553, longitude: 77.5929, accuracy: 6, speed: 31, heading: 195, batteryLevel: 74, isMockLocation: false, activityType: 'IN_VEHICLE', timestamp: `${todayStr}T15:00:00.000Z`, address: 'Shanthi Nagar Double Road' },
+        { id: 'ping-r-8', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9298, longitude: 77.5843, accuracy: 4, speed: 0, heading: 90, batteryLevel: 68, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T16:15:00.000Z`, address: 'Jayanagar 4th Block Shopping Complex' },
+        { id: 'ping-r-9', organizationId: defaultOrgId, employeeId: rahulEmpId, employeeName: 'Rahul Verma', latitude: 12.9166, longitude: 77.6101, accuracy: 5, speed: 18, heading: 110, batteryLevel: 63, isMockLocation: false, activityType: 'IN_VEHICLE', timestamp: `${todayStr}T17:30:00.000Z`, address: 'BTM Layout 2nd Stage' }
+      ];
+      this.locationPings.push(...rahulPings);
+
+      const rahulVisits: ClientVisit[] = [
+        {
+          id: 'visit-r-1',
+          organizationId: defaultOrgId,
+          employeeId: rahulEmpId,
+          employeeName: 'Rahul Verma',
+          clientName: 'Suresh Menon',
+          companyName: 'Nexus FinTech Labs',
+          phoneNumber: '+91-98450-11223',
+          visitTime: `${todayStr}T10:30:00.000Z`,
+          latitude: 12.9784,
+          longitude: 77.6408,
+          address: 'Indiranagar 100ft Road, Suite 402',
+          outcome: 'INTERESTED',
+          notes: 'Met VP Operations. Interested in 50 Android field tracking licenses. Requested custom quote.',
+          durationMinutes: 45,
+          createdAt: `${todayStr}T10:30:00.000Z`
+        },
+        {
+          id: 'visit-r-2',
+          organizationId: defaultOrgId,
+          employeeId: rahulEmpId,
+          employeeName: 'Rahul Verma',
+          clientName: 'Alok Gupta',
+          companyName: 'CloudCraft Technologies',
+          phoneNumber: '+91-98451-44556',
+          visitTime: `${todayStr}T13:15:00.000Z`,
+          latitude: 12.9745,
+          longitude: 77.6015,
+          address: 'Church Street, Brigade Towers',
+          outcome: 'FOLLOW_UP_REQUIRED',
+          notes: 'Demonstrated power dialer and call recordings. Follow-up demo scheduled for Friday.',
+          durationMinutes: 40,
+          createdAt: `${todayStr}T13:15:00.000Z`
+        },
+        {
+          id: 'visit-r-3',
+          organizationId: defaultOrgId,
+          employeeId: rahulEmpId,
+          employeeName: 'Rahul Verma',
+          clientName: 'Manoj Kumar',
+          companyName: 'Suntec Retail Distribution',
+          phoneNumber: '+91-98452-77889',
+          visitTime: `${todayStr}T16:20:00.000Z`,
+          latitude: 12.9298,
+          longitude: 77.5843,
+          address: 'Jayanagar 4th Block, Metro Pillar 14',
+          outcome: 'CLOSED_WON',
+          notes: 'Signed contract for 12 telecallers + field agents. Advance payment approved.',
+          durationMinutes: 50,
+          createdAt: `${todayStr}T16:20:00.000Z`
+        }
+      ];
+      rahulVisits.forEach(v => this.clientVisits.set(v.id, v));
+
+      // 4B. Priya Patel (Field Team Lead)
+      const priyaEmpId = '66666666-6666-6666-6666-666666666602';
+      const priyaAttId = 'att-priya-today';
+      const priyaAtt: AttendanceRecord = {
+        id: priyaAttId,
+        organizationId: defaultOrgId,
+        employeeId: priyaEmpId,
+        employeeName: 'Priya Patel',
+        checkInTime: `${todayStr}T09:00:00.000Z`,
+        checkInLat: 12.9569,
+        checkInLng: 77.7011,
+        checkInAddress: 'Marathahalli Bridge, Outer Ring Road',
+        checkInBattery: 98,
+        status: 'CHECKED_IN',
+        totalDurationMinutes: 400,
+        totalDistanceKm: 28.6,
+        isMockDetected: false,
+        remarks: 'Whitefield client tech park territory visits',
+        createdAt: `${todayStr}T09:00:00.000Z`,
+        updatedAt: new Date().toISOString()
+      };
+      this.attendances.set(priyaAttId, priyaAtt);
+
+      const priyaPings: LocationPing[] = [
+        { id: 'ping-p-1', organizationId: defaultOrgId, employeeId: priyaEmpId, employeeName: 'Priya Patel', latitude: 12.9569, longitude: 77.7011, accuracy: 4, speed: 0, heading: 0, batteryLevel: 98, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T09:00:00.000Z`, address: 'Marathahalli Bridge' },
+        { id: 'ping-p-2', organizationId: defaultOrgId, employeeId: priyaEmpId, employeeName: 'Priya Patel', latitude: 12.9856, longitude: 77.7314, accuracy: 5, speed: 0, heading: 90, batteryLevel: 92, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T10:15:00.000Z`, address: 'ITPL Main Road, Whitefield' },
+        { id: 'ping-p-3', organizationId: defaultOrgId, employeeId: priyaEmpId, employeeName: 'Priya Patel', latitude: 12.9984, longitude: 77.7610, accuracy: 6, speed: 25, heading: 70, batteryLevel: 86, isMockLocation: false, activityType: 'IN_VEHICLE', timestamp: `${todayStr}T13:30:00.000Z`, address: 'Kadugodi Industrial Area' },
+        { id: 'ping-p-4', organizationId: defaultOrgId, employeeId: priyaEmpId, employeeName: 'Priya Patel', latitude: 12.9260, longitude: 77.6830, accuracy: 4, speed: 0, heading: 220, batteryLevel: 79, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T16:00:00.000Z`, address: 'EcoSpace Business Park, Bellandur' }
+      ];
+      this.locationPings.push(...priyaPings);
+
+      const priyaVisits: ClientVisit[] = [
+        {
+          id: 'visit-p-1',
+          organizationId: defaultOrgId,
+          employeeId: priyaEmpId,
+          employeeName: 'Priya Patel',
+          clientName: 'Naveen Reddy',
+          companyName: 'GlobalEdge Infotech',
+          phoneNumber: '+91-98101-22334',
+          visitTime: `${todayStr}T10:30:00.000Z`,
+          latitude: 12.9856,
+          longitude: 77.7314,
+          address: 'ITPL Park, Tower C',
+          outcome: 'INTERESTED',
+          notes: 'Presented TeleTrack multi-OS integration and WhatsApp automation.',
+          durationMinutes: 45,
+          createdAt: `${todayStr}T10:30:00.000Z`
+        },
+        {
+          id: 'visit-p-2',
+          organizationId: defaultOrgId,
+          employeeId: priyaEmpId,
+          employeeName: 'Priya Patel',
+          clientName: 'Karthik Balan',
+          companyName: 'UrbanLogistics Corp',
+          phoneNumber: '+91-98102-55667',
+          visitTime: `${todayStr}T16:15:00.000Z`,
+          latitude: 12.9260,
+          longitude: 77.6830,
+          address: 'EcoSpace, Outer Ring Road',
+          outcome: 'CLOSED_WON',
+          notes: 'Signed 25 driver & field staff live location tracking contract.',
+          durationMinutes: 60,
+          createdAt: `${todayStr}T16:15:00.000Z`
+        }
+      ];
+      priyaVisits.forEach(v => this.clientVisits.set(v.id, v));
+
+      // 4C. Sneha Rao (Shift Completed & Checked Out)
+      const snehaEmpId = '66666666-6666-6666-6666-666666666604';
+      const snehaAttId = 'att-sneha-today';
+      const snehaAtt: AttendanceRecord = {
+        id: snehaAttId,
+        organizationId: defaultOrgId,
+        employeeId: snehaEmpId,
+        employeeName: 'Sneha Rao',
+        checkInTime: `${todayStr}T08:45:00.000Z`,
+        checkInLat: 12.9116,
+        checkInLng: 77.6433,
+        checkInAddress: 'HSR Layout Sector 2',
+        checkInBattery: 96,
+        checkOutTime: `${todayStr}T17:30:00.000Z`,
+        checkOutLat: 12.9125,
+        checkOutLng: 77.6440,
+        checkOutAddress: 'HSR Layout Sector 1 Hub',
+        checkOutBattery: 34,
+        status: 'CHECKED_OUT',
+        totalDurationMinutes: 525,
+        totalDistanceKm: 34.2,
+        isMockDetected: false,
+        remarks: 'Covered Electronic City & HSR customer meetings. Shift complete.',
+        createdAt: `${todayStr}T08:45:00.000Z`,
+        updatedAt: `${todayStr}T17:30:00.000Z`
+      };
+      this.attendances.set(snehaAttId, snehaAtt);
+
+      const snehaPings: LocationPing[] = [
+        { id: 'ping-s-1', organizationId: defaultOrgId, employeeId: snehaEmpId, employeeName: 'Sneha Rao', latitude: 12.9116, longitude: 77.6433, accuracy: 4, speed: 0, heading: 0, batteryLevel: 96, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T08:45:00.000Z`, address: 'HSR Sector 2' },
+        { id: 'ping-s-2', organizationId: defaultOrgId, employeeId: snehaEmpId, employeeName: 'Sneha Rao', latitude: 12.8399, longitude: 77.6770, accuracy: 5, speed: 0, heading: 180, batteryLevel: 82, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T11:00:00.000Z`, address: 'Electronic City Phase 1' },
+        { id: 'ping-s-3', organizationId: defaultOrgId, employeeId: snehaEmpId, employeeName: 'Sneha Rao', latitude: 12.9125, longitude: 77.6440, accuracy: 4, speed: 0, heading: 0, batteryLevel: 34, isMockLocation: false, activityType: 'STILL', timestamp: `${todayStr}T17:30:00.000Z`, address: 'HSR Sector 1 Hub' }
+      ];
+      this.locationPings.push(...snehaPings);
     }
   }
 }

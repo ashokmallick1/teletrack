@@ -743,3 +743,151 @@ export interface EvolutionMessageResponse {
   instanceName: string;
   note?: string;
 }
+
+// ==========================================
+// Field Tracking, Attendance & TrackHR Types
+// ==========================================
+
+export type AttendanceStatus = 'CHECKED_IN' | 'CHECKED_OUT' | 'ON_BREAK';
+
+export interface AttendanceRecord {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  employeeName?: string;
+  checkInTime: string;
+  checkInLat: number;
+  checkInLng: number;
+  checkInAddress?: string;
+  checkInBattery?: number;
+  checkOutTime?: string;
+  checkOutLat?: number;
+  checkOutLng?: number;
+  checkOutAddress?: string;
+  checkOutBattery?: number;
+  status: AttendanceStatus;
+  totalDurationMinutes?: number;
+  totalDistanceKm?: number;
+  isMockDetected?: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LocationPing {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  employeeName?: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  speed?: number; // km/h
+  heading?: number; // degrees
+  altitude?: number;
+  batteryLevel?: number; // 0-100
+  isCharging?: boolean;
+  isMockLocation?: boolean;
+  activityType?: 'STILL' | 'WALKING' | 'IN_VEHICLE' | 'UNKNOWN';
+  timestamp: string;
+  address?: string;
+}
+
+export type ClientVisitOutcome = 'INTERESTED' | 'FOLLOW_UP_REQUIRED' | 'CLOSED_WON' | 'NOT_AVAILABLE' | 'NOT_INTERESTED';
+
+export interface ClientVisit {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  employeeName?: string;
+  clientName: string;
+  phoneNumber?: string;
+  companyName?: string;
+  visitTime: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  outcome: ClientVisitOutcome;
+  notes?: string;
+  photoUrl?: string;
+  durationMinutes?: number;
+  createdAt: string;
+}
+
+export interface LiveAgentLocation {
+  employeeId: string;
+  employeeName: string;
+  employeeCode?: string;
+  avatarUrl?: string;
+  teamName?: string;
+  attendanceStatus: AttendanceStatus;
+  checkInTime?: string;
+  lastPing?: LocationPing;
+  todayDistanceKm: number;
+  todayVisitsCount: number;
+  isOnline: boolean;
+  currentSpeedKmH: number;
+  batteryLevel?: number;
+}
+
+export interface FieldTrackingSummary {
+  totalFieldAgents: number;
+  activeOnDuty: number;
+  totalDistanceTraveledKm: number;
+  totalClientVisits: number;
+  agents: LiveAgentLocation[];
+}
+
+export interface CheckInRequest {
+  employeeId?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  batteryLevel?: number;
+  isMock?: boolean;
+  remarks?: string;
+}
+
+export interface CheckOutRequest {
+  employeeId?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  batteryLevel?: number;
+  isMock?: boolean;
+  remarks?: string;
+}
+
+export interface IngestLocationPingsRequest {
+  employeeId?: string;
+  pings: Array<{
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    speed?: number;
+    heading?: number;
+    altitude?: number;
+    batteryLevel?: number;
+    isCharging?: boolean;
+    isMockLocation?: boolean;
+    activityType?: 'STILL' | 'WALKING' | 'IN_VEHICLE' | 'UNKNOWN';
+    timestamp?: string;
+    address?: string;
+  }>;
+}
+
+export interface CreateClientVisitRequest {
+  employeeId?: string;
+  clientName: string;
+  phoneNumber?: string;
+  companyName?: string;
+  visitTime?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  outcome: ClientVisitOutcome;
+  notes?: string;
+  photoUrl?: string;
+  durationMinutes?: number;
+}
+

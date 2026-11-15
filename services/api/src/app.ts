@@ -18,6 +18,7 @@ import { callRecordingRouter } from './routes/call-recording.routes';
 import { campaignRouter } from './routes/campaign.routes';
 import { whatsappRouter } from './routes/whatsapp.routes';
 import { webhookRouter } from './routes/webhook.routes';
+import { trackingRouter } from './routes/tracking.routes';
 import { errorHandler } from './middleware/error';
 
 import fs from 'fs';
@@ -96,6 +97,7 @@ export function createApp(): Express {
   app.use('/api/v1/campaigns', campaignRouter);
   app.use('/api/v1/whatsapp', whatsappRouter);
   app.use('/api/v1/webhooks', webhookRouter);
+  app.use('/api/v1/tracking', trackingRouter);
 
   // 404 handler
   app.use((req, res) => {

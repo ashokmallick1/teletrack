@@ -40,8 +40,10 @@ captures/
 .cxx/
 
 # Local Persistence & Data
+data/
 services/api/data/
 services/api/uploads/
+scripts/
 *.tar.gz
 playwright-report/
 test-results/
